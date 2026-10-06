@@ -1,0 +1,1 @@
+# coop_support_hack
