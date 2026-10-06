@@ -1,0 +1,18 @@
+{
+  "name": "support-rma",
+  "displayName": "Support RMA",
+  "version": "0.1.0",
+  "description": "Read the live Shipment Inventory Record (OneDrive/SharePoint sync) to list available replacement serial numbers; foundation for automated RMA generation.",
+  "author": {
+    "name": "Nawab Amedi"
+  },
+  "license": "MIT",
+  "keywords": ["solace", "support", "rma", "inventory", "serial-number"],
+  "userConfig": {
+    "inventory_path": {
+      "type": "file",
+      "title": "Shipment Inventory Record (.xlsx)",
+      "description": "Local path of the OneDrive-synced 'Shipment Inventory Record.xlsx'. Leave empty to auto-discover it under your OneDrive / SharePoint sync folders."
+    }
+  }
+}
