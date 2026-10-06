@@ -19,7 +19,7 @@ strikethrough. Everything else is available.
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}"/scripts/inventory.sh \
-  --path "${user_config.inventory_path}" \
+  --path '${user_config.inventory_path}' \
   --state-dir "${CLAUDE_PLUGIN_DATA}" \
   -AvailableOnly
 ```
