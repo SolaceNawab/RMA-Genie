@@ -1,0 +1,21 @@
+{
+  "name": "coop-support-hack",
+  "owner": {
+    "name": "Nawab Amedi"
+  },
+  "metadata": {
+    "description": "Hackathon plugins for Solace Technical Support",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "support-rma",
+      "description": "List available replacement serial numbers from the live Shipment Inventory Record; foundation for automated RMA generation.",
+      "source": "./plugins/support-rma",
+      "author": {
+        "name": "Nawab Amedi"
+      },
+      "category": "support"
+    }
+  ]
+}
