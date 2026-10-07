@@ -1,4 +1,4 @@
-# support-rma-jira
+# RMA Genie (support-rma-genie)
 
 Claude Code plugin that raises standardized **OPS RMA** Jira tickets for Solace hardware appliance replacements. It automates Step 3 ("Open an RMA in Jira") of the [Hardware Replacement Workflow](https://sol-jira.atlassian.net/wiki/spaces/SS/pages/3758332688/Hardware+Replacement+Workflow).
 
@@ -21,11 +21,11 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 
 ## Prerequisites
 
-- **[support-gd-handler](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-gd-handler)** from support-marketplace (`/plugin install support-gd-handler@support-marketplace`). On Windows raise-rma uses its bundled `decrypt-cms.exe` to decrypt the bundle, and on any platform it uses `filedrop.py` to fetch a bundle that isn't downloaded yet. support-jira's `/support-jira:draft-jira` is no longer needed. Its requirements apply too:
+- **[support-gd-handler](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-gd-handler)** from support-marketplace (`/plugin install support-gd-handler@support-marketplace`). On Windows RMA Genie uses its bundled `decrypt-cms.exe` to decrypt the bundle, and on any platform it uses `filedrop.py` to fetch a bundle that isn't downloaded yet. support-jira's `/support-jira:draft-jira` is no longer needed. Its requirements apply too:
   - `pip install -r ~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/requirements.txt` (installs `requests`)
   - `decrypt-cms`: bundled with the plugin on Windows. On Linux/macOS it must be on `PATH` or reachable through the RND shared load.
 - **Python 3** (standard library only). It's used by `scripts/extract_gd.py`.
-- **[support-rma](../support-SupportPlans)** from this marketplace (`/plugin install support-rma@coop-support-hack`), plus a OneDrive-synced copy of the Shipment Inventory Record or a signed-in desktop Excel. Without it, raise-rma asks for the tier and case details by hand.
+- **[support-rma](../support-SupportPlans)** from this marketplace (`/plugin install support-rma@coop-support-hack`), plus a OneDrive-synced copy of the Shipment Inventory Record or a signed-in desktop Excel. Without it, RMA Genie asks for the tier and case details by hand.
 - **An Atlassian MCP connection** to `sol-jira.atlassian.net`. Either of the following works:
   - **The Atlassian MCP server, added directly.** This works with any Claude Code login, including gateway/API-token setups:
     ```
@@ -38,15 +38,15 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 
 ```
 /plugin marketplace add SolaceNawab/coop_support_hack
-/plugin install support-rma-jira@coop-support-hack
+/plugin install support-rma-genie@coop-support-hack
 ```
 
 ## Usage
 
 ```
-/support-rma-jira:raise-rma                                   # asks for the serial, looks it up, finds or decrypts the GD
-/support-rma-jira:raise-rma S009004123                        # serial given up front
-/support-rma-jira:raise-rma ./gather-diagnostics_<host>_...   # explicit extracted GD folder
+/support-rma-genie:raise                                  # asks for the serial, looks it up, finds or decrypts the GD
+/support-rma-genie:raise S009004123                       # serial given up front
+/support-rma-genie:raise ./gather-diagnostics_<host>_...  # explicit extracted GD folder
 ```
 
 Or ask in plain language:
@@ -66,13 +66,13 @@ Full field rules are in [`context/rma-jira-fields.md`](context/rma-jira-fields.m
 ## Layout
 
 ```
-support-rma-jira/
+support-rma-genie/   (folder: plugins/support-JiraTemplate)
 ├── .claude-plugin/plugin.json
 ├── context/
 │   ├── rma-jira-fields.md     # Summary/Description/field rules (from the Confluence runbook)
 │   └── evidence-guide.md      # failure type → evidence sections and log patterns (DRAFT)
 ├── scripts/extract_gd.py      # parses cli-diagnostics.txt / gdh-diagnostics.txt; prints to stdout only
-└── skills/raise-rma/SKILL.md
+└── skills/raise/SKILL.md
 ```
 
 `extract_gd.py` can also be run on its own:

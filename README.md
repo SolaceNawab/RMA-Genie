@@ -9,21 +9,32 @@ This repo is a Claude Code plugin marketplace.
 /plugin marketplace add SolaceNawab/RMA-Genie
 /plugin install support-rma@coop-support-hack
 /plugin install support-jira@coop-support-hack
-/plugin install support-rma-jira@coop-support-hack
+/plugin install support-rma-genie@coop-support-hack
 ```
 
 | Plugin | What it does |
 |---|---|
 | [support-rma](plugins/support-SupportPlans) | `/support-rma:inventory`: available serial numbers from the live Shipment Inventory Record (RMA generation to follow) |
 | [support-jira](plugins/support-JiraCreation) | `/support-jira:draft-jira`: collect serial number and support plan, then decrypt and extract the gather-diagnostics bundle (Jira drafting to follow) |
-| [support-rma-jira](plugins/support-JiraTemplate) | `/support-rma-jira:raise-rma`: build the OPS RMA Jira from an extracted gather-diagnostics bundle (Summary/Description per the Hardware Replacement Workflow), preview for edits, then create it via the Atlassian MCP |
+| [support-rma-genie](plugins/support-JiraTemplate) (RMA Genie) | `/support-rma-genie:raise`: build the OPS RMA Jira from an extracted gather-diagnostics bundle (Summary/Description per the Hardware Replacement Workflow), preview for edits, then create it via the Atlassian MCP |
+
+> **Renamed:** the RMA plugin was `support-rma-jira` (`/support-rma-jira:raise-rma`). It's now
+> **RMA Genie**: plugin `support-rma-genie`, command **`/support-rma-genie:raise`**. If you
+> installed the old name, switch over once:
+>
+> ```
+> /plugin marketplace update coop-support-hack
+> /plugin uninstall support-rma-jira@coop-support-hack
+> /plugin install support-rma-genie@coop-support-hack
+> /reload-plugins
+> ```
 
 On a Mac, follow [macOS setup](#macos-setup) first.
 
 ## macOS setup
 
 These are the one-time steps a Mac user needs before `/support-rma:inventory` and
-`/support-rma-jira:raise-rma` work. They were tested on macOS (Apple Silicon) with
+`/support-rma-genie:raise` work. They were tested on macOS (Apple Silicon) with
 Homebrew Python 3.14. On Windows none of this is needed.
 
 ### 1. Python 3
@@ -36,7 +47,7 @@ Check with `python3 --version`. If it's missing, run `brew install python`.
 ```
 /plugin marketplace add SolaceNawab/RMA-Genie
 /plugin install support-rma@coop-support-hack
-/plugin install support-rma-jira@coop-support-hack
+/plugin install support-rma-genie@coop-support-hack
 /plugin install support-jira@coop-support-hack
 ```
 
@@ -111,7 +122,7 @@ echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc     # if ~/bin isn't on your PA
 ```
 
 Open a new terminal and check with `decrypt-cms -h`. support-gd-handler's filedrop fetch,
-`/support-jira:draft-jira` and `/support-rma-jira:raise-rma` then find it on the `PATH`. To
+`/support-jira:draft-jira` and `/support-rma-genie:raise` then find it on the `PATH`. To
 update it later, run `git pull` and the `go build` line again.
 
 How it decrypts: it signs in to **Vault** (default `-method jwt`; `oidc` and `github` also
@@ -122,7 +133,7 @@ there either, it's an access issue rather than a Mac issue.
 
 Without a Mac build you can still decrypt and extract on a dev server, copy the
 **extracted folder** to the Mac (e.g. `scp -r <you>@<dev-server>:<path>/gather-diagnostics_… ~/Downloads/`),
-and run `/support-rma-jira:raise-rma <serial>`. It finds extracted bundles in the current
+and run `/support-rma-genie:raise <serial>`. It finds extracted bundles in the current
 folder and `~/Downloads` and picks the one whose chassis serial matches.
 
 The filedrop fetch (support-gd-handler's `filedrop.py`) also needs Python `requests`.

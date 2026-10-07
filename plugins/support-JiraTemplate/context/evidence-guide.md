@@ -2,7 +2,7 @@
 
 > **DRAFT: validate against real GDs and refine.** Section names and log patterns below are starting points, not verified across all SolOS versions. When a real GD shows a better signal, update this file.
 
-Background for `extract_gd.py scan`, which implements these patterns (`LOG_PATTERNS` / `PART_SECTIONS` in the script) and is what `raise-rma` runs. **When you refine a pattern here, update the script too.** The manual steps below are the fallback for a deeper dig. Goal: at most 10 concise, factual findings (quote exact section names and log lines with timestamps) plus a list of sections worth including in the RMA Description.
+Background for `extract_gd.py scan`, which implements these patterns (`LOG_PATTERNS` / `PART_SECTIONS` in the script) and is what RMA Genie (`/support-rma-genie:raise`) runs. **When you refine a pattern here, update the script too.** The manual steps below are the fallback for a deeper dig. Goal: at most 10 concise, factual findings (quote exact section names and log lines with timestamps) plus a list of sections worth including in the RMA Description.
 
 ## How to scan
 
