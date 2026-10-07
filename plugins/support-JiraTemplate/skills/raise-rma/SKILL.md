@@ -25,7 +25,7 @@ Keep this checklist in chat and tick items as you go:
 
 ```
 [ ] 0 Pre-flight (MCP / draft mode)
-[ ] 1 GD located
+[ ] 1 Case # + customer collected, GD fetched/located
 [ ] 2 Faulty unit confirmed
 [ ] 3 Part(s) + tier chosen
 [ ] 4 Evidence scanned + sections chosen
@@ -44,12 +44,42 @@ Check which Atlassian MCP tools are available. Teammates have either the direct 
 - If found: optionally call `getAccessibleAtlassianResources` to confirm access to `sol-jira.atlassian.net` (cloudId `f76135b4-3004-44fe-a1bc-bd189b6e79f3`).
 - If none is available, or auth fails: announce **DRAFT MODE**. Everything still works, but Step 6 is skipped and Step 8 outputs paste-ready text instead of creating the ticket.
 
-## Step 1: Locate the GD
+## Step 1: Case number, customer, and the GD
 
-1. If an argument was given, use that path.
-2. Otherwise auto-discover extracted folders in the cwd: directories named `gather-diagnostics*` that contain `cli-diagnostics.txt` or `gdh-diagnostics.txt`, possibly nested as `<f>/<f>/`. A quick `find . -maxdepth 3 \( -name cli-diagnostics.txt -o -name gdh-diagnostics.txt \)` works. Ignore archives (`.tgz`, `.p7m`): those are not extracted.
-3. **Several found:** run `inventory` on each and list them by hostname + chassis serial; ask which one is the faulty unit.
-4. **None found:** suggest decrypting and extracting the bundle first (`/support-jira:draft-jira` or `/support-gd-handler:fetch-gds`), or offer the manual fallback: ask for the chassis serial and whatever CLI output the user can paste (`show hardware detail`, `show product-key`, ...). In the manual fallback, use only what the user pasted.
+**First, ask in one plain-text message** (skip whatever the user already gave):
+
+```
+- Salesforce case number (e.g. 00083338):
+- Customer name as it appears in filedrop (e.g. "rbc"):
+```
+
+The case number goes into the ticket and is the filedrop folder name. Customer names in filedrop are lowercase and prefix-matched, so pass through whatever the user gives.
+
+Then get the GD, in this order:
+
+1. **An argument path was given:** use it.
+2. **Already extracted in the cwd:** directories named `gather-diagnostics*` that contain `cli-diagnostics.txt` or `gdh-diagnostics.txt`, possibly nested as `<f>/<f>/`. `find . -maxdepth 3 \( -name cli-diagnostics.txt -o -name gdh-diagnostics.txt \)` finds them. If they exist, ask whether to use them or fetch fresh from filedrop.
+3. **Otherwise, fetch from filedrop** (the normal case). This uses support-gd-handler's scripts at these exact fixed paths. Don't search for them and don't read them:
+   - `FD=~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/scripts/filedrop.py`
+   - `HG=~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/scripts/handle_gds.py`
+
+   If `filedrop.py` doesn't exist, tell the user to install support-gd-handler (`/plugin install support-gd-handler@support-marketplace`) and fall back to option 4.
+
+   Steps:
+   1. Before running anything, tell the user: *"Fetching from filedrop. If Microsoft sign-in is needed, a URL and code will appear below. Complete the sign-in and it continues automatically."*
+   2. Search for the case folder: `python3 "$FD" find <customer> "<case number>"`. Use a Bash timeout of 600000 ms. Each match prints as `<full_path>\t<type>\t<size>\t<date>`.
+   3. Handle the results:
+      - **No filedrop account matched:** the customer name is wrong. Names are lowercase and prefix-matched. Ask again; don't retry blindly.
+      - **No matches:** say so, and ask the user to check the case number or give a filename fragment (e.g. the hostname) to search for instead.
+      - **Matches found:** keep the GD-looking files (`gather-diagnostics*` ending in `.tgz`, `.tgz.p7m`, `.zip.p7m` or `.zip.p7m.zip`). If there are several (HA pairs usually have one per node, and there may be older uploads), list them with size and date and ask which to get. The default is all of the newest set.
+   4. Download, decrypt and extract: `python3 "$FD" get <customer> <full_path> [<full_path> ...]`. Run it in the background with a 600000 ms timeout. Watch its output for the Microsoft sign-in URL and code and show them to the user straight away. It downloads into the cwd and decrypts and extracts automatically.
+   5. Run `python3 "$HG"` with no arguments. It auto-discovers the extracted folders and prints a `=== BROKER CONTEXT ===` block. Read the saved output file rather than the inline stdout, which can be thousands of lines. Show only that block.
+   6. Then go back to option 2 to find the extracted folders.
+
+   Don't run `rm` or `mkdir` around this; support-gd-handler cleans up after itself. If it errors (extraction failed, unexpected wrapper, `PermissionError`), show the error verbatim and point the user to `/support-gd-handler:fetch-gds`, which knows the workarounds. Don't improvise fixes.
+4. **Manual fallback** (filedrop unavailable or the user prefers it): use `/support-jira:draft-jira`, or ask for the chassis serial and whatever CLI output the user can paste (`show hardware detail`, `show product-key`, ...). In the manual fallback, use only what the user pasted.
+
+**Several extracted GDs:** run `inventory` on each, list them by hostname + chassis serial, and ask which one is the faulty unit.
 
 ## Step 2: Inventory and confirm the faulty unit
 
@@ -81,7 +111,7 @@ For "Other" parts, find the part number per the part-number lookup guide in rma-
 
 ## Step 4: Evidence scan (delegated)
 
-The GD files can be several MB, so delegate the scan to a **general-purpose subagent** to keep this context clean. Subagents do not expand `${CLAUDE_PLUGIN_ROOT}`, so **pass absolute paths**. Use the expanded paths in this file's reference list. If they still show the literal `${CLAUDE_PLUGIN_ROOT}`, resolve it (`echo "$CLAUDE_PLUGIN_ROOT"`). If that is empty too, locate the plugin with `find ~/.claude/plugins -path '*support-rma-jira*/scripts/extract_gd.py'`.
+The GD files can be several MB, so delegate the scan to a **general-purpose subagent** to keep this context clean. Subagents do not expand `${CLAUDE_PLUGIN_ROOT}`, so **pass absolute paths**. Use the expanded paths in this file's reference list. If they still show the literal `${CLAUDE_PLUGIN_ROOT}`, resolve it (`echo "$CLAUDE_PLUGIN_ROOT"`). If that is empty too, locate the plugin with `find ~/.claude/plugins -path '*/scripts/extract_gd.py'`.
 
 Prompt the subagent with:
 - the absolute GD folder path,
@@ -97,7 +127,7 @@ When it returns, show the findings, then ask (AskUserQuestion, multiSelect) whic
 Ask for everything still missing in **one** message, as a checklist, so the user can answer in one go:
 
 ```
-- Customer short name (for the Summary, e.g. "ACME"):
+- Customer short name for the Summary (e.g. "ACME"; may differ from the filedrop name):
 - Country (Platinum / Nuances Summary):
 - Shipping address:
 - Data center address (only if different):
@@ -167,7 +197,7 @@ Created <KEY>: https://sol-jira.atlassian.net/browse/<KEY>
 Summary: <final summary>
 Linked: Relates → SOL-xxxxx
 Add these watchers manually (Watch → Add watchers): <resolved display names>
-Salesforce: add <KEY> to the case's Jira tab and set Hardware Fault = Yes.
+Salesforce case <case number>: add <KEY> to the Jira tab and set Hardware Fault = Yes.
 ```
 
 ## Error handling
