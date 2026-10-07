@@ -7,7 +7,7 @@ Claude Code plugin that raises standardized **OPS RMA** Jira tickets for Solace 
 
 ## What it does
 
-1. Asks for the **chassis serial** of the faulty appliance first, then **looks it up in the Shipment Inventory Record** (via support-rma) for the customer, support tier, MTCE status, shipping address, contact and spare provider. These pre-fill the rest of the ticket.
+1. Asks for the **chassis serial** of the faulty appliance first, then **looks it up in the Shipment Inventory Record** (built in; also available on its own as `/support-rma-genie:inventory`) for the customer, support tier, MTCE status, shipping address, contact and spare provider. These pre-fill the rest of the ticket.
 2. Gets the gather-diagnostics: one `extract_gd.py discover` call lists every extracted bundle (with its chassis serial) and every archive in the cwd and `~/Downloads`. A matching extracted bundle is used straight away. Otherwise you pick an archive from a list (no folder picker), and it is decrypted with `decrypt-cms` and extracted next to the archive. If the archive isn't downloaded yet, it can fetch it from `filedrop.solace.com` instead (support-gd-handler). It then reads the bundle (hostname, chassis part number and serial, SolOS, blades, power modules) and checks that the chassis serial matches the one you gave, which guards against using the HA mate's bundle.
 3. Asks for the one part to replace (PSU / ADB / NAB / SFP / HBA / disk / fan / full appliance). It asks for the support tier only if the inventory lookup couldn't settle it. For Platinum+ it asks for the sub-level (Yes / Hybrid / In-Country Local Spares) or a **Nuance** (part not stocked at the partner depot, or partner out of stock).
 4. Scans the bundle for failure evidence with `extract_gd.py scan` (about 2 s, no subagent): current-state health checks plus grouped, quoted log history. The relevant sections go into the draft, and you can drop any of them in the preview.
@@ -25,7 +25,7 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
   - `pip install -r ~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/requirements.txt` (installs `requests`)
   - `decrypt-cms`: bundled with the plugin on Windows. On Linux/macOS it must be on `PATH` or reachable through the RND shared load.
 - **Python 3** (standard library only). It's used by `scripts/extract_gd.py`.
-- **[support-rma](../support-SupportPlans)** from this marketplace (`/plugin install support-rma@coop-support-hack`), plus a OneDrive-synced copy of the Shipment Inventory Record or a signed-in desktop Excel. Without it, RMA Genie asks for the tier and case details by hand.
+- **The Shipment Inventory Record**, for the built-in lookup: a OneDrive-synced copy (Windows or Mac), or on Windows a signed-in desktop Excel. You can also set the plugin's `inventory_path` / `inventory_url` options. On a Mac, see the repo README's macOS setup (OneDrive sync plus Full Disk Access). Without the sheet, RMA Genie asks for the tier and case details by hand.
 - **An Atlassian MCP connection** to `sol-jira.atlassian.net`. Either of the following works:
   - **The Atlassian MCP server, added directly.** This works with any Claude Code login, including gateway/API-token setups:
     ```
@@ -47,6 +47,9 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 /support-rma-genie:raise                                  # asks for the serial, looks it up, finds or decrypts the GD
 /support-rma-genie:raise S009004123                       # serial given up front
 /support-rma-genie:raise ./gather-diagnostics_<host>_...  # explicit extracted GD folder
+
+/support-rma-genie:inventory S009004123                   # inventory lookup only: customer, tier, MTCE, chassis, address
+/support-rma-genie:inventory                              # list available (not crossed-off) serials (takes several minutes)
 ```
 
 Or ask in plain language:
@@ -71,9 +74,20 @@ support-rma-genie/   (folder: plugins/support-JiraTemplate)
 ├── context/
 │   ├── rma-jira-fields.md     # Summary/Description/field rules (from the Confluence runbook)
 │   └── evidence-guide.md      # failure type → evidence sections and log patterns (DRAFT)
-├── scripts/extract_gd.py      # parses cli-diagnostics.txt / gdh-diagnostics.txt; prints to stdout only
-└── skills/raise/SKILL.md
+├── scripts/
+│   ├── extract_gd.py          # parses cli-diagnostics.txt / gdh-diagnostics.txt; prints to stdout only
+│   ├── inventory.sh           # Shipment Inventory Record entry point: PowerShell on Windows, inventory.py elsewhere
+│   ├── inventory.py           # macOS / Linux backend (Python 3, stdlib)
+│   └── lookup_serial.ps1, read_inventory.ps1, inventory_source.ps1   # Windows backend
+├── tests/fixture_inventory.xlsx (+ make_fixture.ps1)                 # fake inventory data for the strike cases
+└── skills/
+    ├── raise/SKILL.md         # /support-rma-genie:raise
+    └── inventory/SKILL.md     # /support-rma-genie:inventory
 ```
+
+The inventory scripts were brought over from Nawab Amedi's support-rma plugin (`/support-rma:inventory`).
+They're the same on every platform, with the same JSON output. support-rma still exists for now and will be
+removed once this built-in copy has been confirmed.
 
 `extract_gd.py` can also be run on its own:
 ```
@@ -89,5 +103,5 @@ python3 scripts/extract_gd.py section   <gd-folder> "show hardware detail" "show
 - **Watchers have to be added by hand.** The Atlassian MCP has no add-watcher tool, so the skill resolves the names you give it and prints them for you to add.
 - **The PSU part number** doesn't appear in `show hardware detail`, so the skill asks you for it.
 - **`evidence-guide.md` is a draft.** Refine it as the team sees real cases.
-- **Phase 2:** automatic entitlement and tier lookup by serial. [`support-rma`](../support-SupportPlans)'s `/support-rma:inventory` already reads the Shipment Inventory Record (customer, tier, maintenance eligibility, address), so it's the natural thing to hook in here. The Platinum Plus Maintenance sheet (spare quantity) is still to do.
+- **Phase 2 (rest):** the Shipment Inventory Record lookup is built in. Still to do: the Platinum Plus Maintenance sheet (sub-level, partner depot, spare quantity).
 - **Later:** support-log-buddy findings, a post-install update mode (Step 6.2), and pre-filling details from Salesforce through support-ticket-lookup.

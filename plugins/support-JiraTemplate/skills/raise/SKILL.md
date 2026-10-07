@@ -1,6 +1,6 @@
 ---
 name: raise
-description: "Raises Operations (OPS) RMA Jira tickets for Solace hardware appliance replacements (PSU, ADB, NAB, SFP, HBA, disk, fan, or full appliance) following the Hardware Replacement Workflow. Asks for the chassis serial first and looks up the support tier, customer and shipping address in the Shipment Inventory Record (via support-rma), finds or decrypts the gather-diagnostics, runs a fast scripted evidence scan, applies the Platinum / Platinum+ / exception Summary conventions, drafts the Description for user review, checks for duplicate RMAs, then creates the ticket via the Atlassian MCP (or produces paste-ready text). Use when a support case needs a hardware replacement, an RMA, a part shipment from HQ, or a Flash/Maintech partner backfill ticket."
+description: "Raises Operations (OPS) RMA Jira tickets for Solace hardware appliance replacements (PSU, ADB, NAB, SFP, HBA, disk, fan, or full appliance) following the Hardware Replacement Workflow. Asks for the chassis serial first and looks up the support tier, customer and shipping address in the Shipment Inventory Record (built-in lookup), finds or decrypts the gather-diagnostics, runs a fast scripted evidence scan, applies the Platinum / Platinum+ / exception Summary conventions, drafts the Description for user review, checks for duplicate RMAs, then creates the ticket via the Atlassian MCP (or produces paste-ready text). Use when a support case needs a hardware replacement, an RMA, a part shipment from HQ, or a Flash/Maintech partner backfill ticket."
 argument-hint: "[serial | extracted-GD-folder]"
 ---
 
@@ -58,9 +58,9 @@ Keep this in chat, one line per step, ticking as you go:
    ```bash
    PY=$(for c in python3 python py; do "$c" -c "import sys" >/dev/null 2>&1 && { echo "$c"; break; }; done)
    X="${CLAUDE_PLUGIN_ROOT}/scripts/extract_gd.py"
-   INV=$(ls -d ~/.claude/plugins/cache/coop-support-hack/support-rma/*/scripts/inventory.sh 2>/dev/null | sort -V | tail -1)
-   echo "PY=$PY INV=${INV:-missing}"
-   [ -n "$INV" ] && bash "$INV" lookup "<serial>" --state-dir "$HOME/.claude/plugins/data/support-rma-coop-support-hack"; echo "inventory_exit=$?"
+   INV="${CLAUDE_PLUGIN_ROOT}/scripts/inventory.sh"
+   echo "PY=$PY"
+   bash "$INV" lookup "<serial>" --path '${user_config.inventory_path}' --url '${user_config.inventory_url}' --state-dir "${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie-coop-support-hack}"; echo "inventory_exit=$?"
    "$PY" -I "$X" discover . ~/Downloads
    ```
 2. **Read** `rma-jira-fields.md`.
@@ -69,7 +69,7 @@ Keep this in chat, one line per step, ticking as you go:
 **Using the inventory result.** The output is JSON. Each `results[]` entry has `customer`, `support_tier` (`Platinum+` when Premium Onsite Support is Yes), `mtce_eligible`, `mtce_can_provide`, `mtce_contract_active`, `chassis`, `dest_city`, `address` (usually ends with `Attn: <name>, <phone>`), `hw_spare_provided_by`, `sheet` and `row`. Keep it in the conversation only (rule 1). It's the only lookup for this serial, so don't re-run it later.
 - Rows that agree on customer, tier, chassis and address count as **settled**.
 - Rows that differ, or `mtce_eligible: false`, become questions in Step 3's combined call. Don't ask them separately.
-- Not found, `INV=missing` or a non-zero exit: say why in one line (exit 3 usually means Excel isn't signed in). The tier then becomes a Step 3 question and the address a Step 5 question.
+- Not found or a non-zero exit: say why in one line (exit 3: no synced copy / Excel not signed in on Windows / macOS Full Disk Access; see `/support-rma-genie:inventory`). The tier then becomes a Step 3 question and the address a Step 5 question.
 
 Derived defaults: **tier** = `support_tier`. **Customer** = `customer`. **Country** = the end of `address`. **Shipping address** = `address` without the `Attn:` part, with the first comma-separated part as the company and the rest as the street line. **Contact** = the `Attn:` part. **Platinum+ partner** = `hw_spare_provided_by` if it's Flash / Maintech / Fujitsu. **Partner location** = `dest_city` (a suggestion). **Expected chassis** = `chassis`.
 
