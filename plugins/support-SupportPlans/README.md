@@ -4,7 +4,7 @@ Reads the live **Shipment Inventory Record** spreadsheet. It does two things:
 
 - **Serial lookup** (a few seconds): returns the RMA facts for a serial, and
   nothing else: customer, Platinum / Platinum+ tier, MTCE eligibility, chassis,
-  destination city and address.
+  destination city, address and hardware spare provided by.
 - **Listing** (several minutes): reports which serial numbers are still
   available (not crossed off).
 

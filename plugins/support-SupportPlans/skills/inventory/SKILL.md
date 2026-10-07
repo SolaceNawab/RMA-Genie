@@ -1,6 +1,6 @@
 ---
 name: inventory
-description: Look up serial numbers in the live Shipment Inventory Record (customer, Platinum / Platinum+ tier, MTCE eligibility, chassis, destination city, address), or list available (not crossed-off) serials. Use when the user gives a serial number to look up, asks what serials / units / appliances are in stock or available, or which replacement units can ship. Also the data source for RMA generation.
+description: Look up serial numbers in the live Shipment Inventory Record (customer, Platinum / Platinum+ tier, MTCE eligibility, chassis, destination city, address, hardware spare provided by), or list available (not crossed-off) serials. Use when the user gives a serial number to look up, asks what serials / units / appliances are in stock or available, or which replacement units can ship. Also the data source for RMA generation.
 argument-hint: "[serial number(s) to look up, or a filter such as a model or sheet]"
 allowed-tools: Bash, Read
 ---
@@ -50,6 +50,7 @@ fetched at `as_of`, `path` = a file given explicitly), `as_of`, `results[]`,
 - **Chassis:** <chassis>
 - **Dest City:** <dest_city>
 - **Address:** <address>
+- **Hardware spare provided by:** <hw_spare_provided_by>
 ```
 
 Put one line above the blocks giving the source: "Live sheet (OneDrive sync, last
