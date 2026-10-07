@@ -10,6 +10,8 @@ Reads the live **Shipment Inventory Record** spreadsheet. It does two things:
 
 It is the inventory half of a future automated RMA workflow.
 
+**macOS:** see the repo README's [macOS setup](../../README.md#macos-setup) (Python 3, OneDrive sync, Full Disk Access for your terminal app).
+
 ## Platforms
 
 `scripts/inventory.sh` works on **Windows, macOS and Linux** and picks a backend

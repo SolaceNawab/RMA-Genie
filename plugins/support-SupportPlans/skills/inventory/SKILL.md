@@ -112,6 +112,10 @@ Exit codes are the same for both modes: `0` ok, `3` file not found / unreadable,
     in if prompted, then rerun.
   - macOS / Linux: there's no Excel fetch, so the file must be synced (below), or
     downloaded and set as the plugin's `inventory_path`.
+  - macOS, message says `macOS blocked access to … (Operation not permitted)`: the
+    app running Claude Code needs **Full Disk Access** (System Settings → Privacy &
+    Security). After granting it, the user must quit and reopen that app. Point them
+    to the repo README's "macOS setup".
   - On every platform, syncing the Operations "Ship Spreadsheet" folder (**Sync**,
     or **Add shortcut to My files** on the folder, not the file) avoids the fetch
     entirely. On a Mac, OneDrive must be signed in to the Solace account for the
