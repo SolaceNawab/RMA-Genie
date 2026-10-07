@@ -14,9 +14,9 @@ This repo is a Claude Code plugin marketplace.
 
 | Plugin | What it does |
 |---|---|
-| [support-rma](plugins/support-SupportPlans) | `/support-rma:inventory`: available serial numbers from the live Shipment Inventory Record (RMA generation to follow) |
+| [support-rma](plugins/support-SupportPlans) | `/support-rma:inventory`: serial lookup / available serials from the live Shipment Inventory Record. **Being folded into RMA Genie** (`/support-rma-genie:inventory`); will be removed once that's confirmed. |
 | [support-jira](plugins/support-JiraCreation) | `/support-jira:draft-jira`: collect serial number and support plan, then decrypt and extract the gather-diagnostics bundle (Jira drafting to follow) |
-| [support-rma-genie](plugins/support-JiraTemplate) (RMA Genie) | `/support-rma-genie:raise`: build the OPS RMA Jira from an extracted gather-diagnostics bundle (Summary/Description per the Hardware Replacement Workflow), preview for edits, then create it via the Atlassian MCP |
+| [support-rma-genie](plugins/support-JiraTemplate) (RMA Genie) | `/support-rma-genie:raise` and `/support-rma-genie:inventory`: look up the serial in the Shipment Inventory Record (built in), then build the OPS RMA Jira from an extracted gather-diagnostics bundle (Summary/Description per the Hardware Replacement Workflow), preview for edits, then create it via the Atlassian MCP |
 
 > **Renamed:** the RMA plugin was `support-rma-jira` (`/support-rma-jira:raise-rma`). It's now
 > **RMA Genie**: plugin `support-rma-genie`, command **`/support-rma-genie:raise`**. If you
@@ -33,7 +33,7 @@ On a Mac, follow [macOS setup](#macos-setup) first.
 
 ## macOS setup
 
-These are the one-time steps a Mac user needs before `/support-rma:inventory` and
+These are the one-time steps a Mac user needs before `/support-rma-genie:inventory` and
 `/support-rma-genie:raise` work. They were tested on macOS (Apple Silicon) with
 Homebrew Python 3.14. On Windows none of this is needed.
 
@@ -46,12 +46,13 @@ Check with `python3 --version`. If it's missing, run `brew install python`.
 
 ```
 /plugin marketplace add SolaceNawab/RMA-Genie
-/plugin install support-rma@coop-support-hack
 /plugin install support-rma-genie@coop-support-hack
 /plugin install support-jira@coop-support-hack
 ```
 
-You need **support-rma 0.4.0 or later** for macOS. Older versions fail with
+You need **support-rma-genie 0.8.0 or later**: it has the inventory lookup built in
+(`/support-rma-genie:inventory`), with the macOS backend. The separate `support-rma` plugin is
+no longer needed and is being retired. Old inventory scripts fail on macOS with
 `powershell.exe: not found` (exit 127) or `permission denied` (exit 126). To update:
 
 ```
@@ -102,7 +103,7 @@ this step the lookup fails with exit 3 and
 ### 6. Check it works
 
 ```
-/support-rma:inventory <serial>
+/support-rma-genie:inventory <serial>
 ```
 
 You should get the customer, tier, MTCE eligibility, chassis, destination city and
@@ -147,8 +148,8 @@ python3 -m pip install --user --break-system-packages requests
 
 | Symptom | Cause / fix |
 |---|---|
-| `powershell.exe: not found` (exit 127) | support-rma older than 0.4.0. Update the plugin (step 2). |
-| `permission denied` running `inventory.sh` (exit 126) | Same: older support-rma. Update it. |
+| `powershell.exe: not found` (exit 127) | An old Windows-only inventory script (support-rma < 0.4.0). Use RMA Genie's built-in lookup (support-rma-genie ≥ 0.8.0), or update support-rma. |
+| `permission denied` running `inventory.sh` (exit 126) | Same: an old copy. Update the plugin. |
 | `macOS blocked access to … (Operation not permitted)` (exit 3) | Terminal app lacks Full Disk Access (step 5). Remember to quit and reopen it. |
 | `no OneDrive-synced copy … was found` (exit 3) | Sheet not synced yet, or OneDrive is still syncing or paused (step 4). |
 | `decrypt-cms binary not found` | Build it for macOS (step 7), and make sure `~/bin` is on your `PATH` in a new terminal. |
