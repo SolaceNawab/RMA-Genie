@@ -27,7 +27,7 @@ Keep this checklist in chat and tick items as you go:
 [ ] 0 Pre-flight (MCP / draft mode)
 [ ] 1 Serial collected + entitlement looked up
 [ ] 2 GD located/decrypted + faulty unit confirmed
-[ ] 3 Part(s) chosen (+ tier, only if the lookup didn't settle it)
+[ ] 3 Part chosen (+ tier, only if the lookup didn't settle it)
 [ ] 4 Evidence scanned + sections chosen
 [ ] 5 Case details collected
 [ ] 6 Duplicate check
@@ -80,7 +80,7 @@ Derive these values from the result and treat them as pre-filled defaults for la
 - **Tier:** `support_tier`.
 - **Customer short name:** `customer`.
 - **Country:** the country at the end of `address` (e.g. `UK`). If it isn't clear, leave it blank for Step 5.
-- **Shipping address:** `address` without the trailing `Attn:` part.
+- **Shipping address:** `address` without the trailing `Attn:` part, split into the company name (first comma-separated part) and the street / city / postcode line, for the address code block (rma-jira-fields.md §3).
 - **Contact name + phone:** the `Attn:` part of `address`, if present.
 - **Platinum+ partner:** `hw_spare_provided_by`, if it names Flash, Maintech or Fujitsu.
 - **Platinum+ partner location:** `dest_city`, as a suggestion only. Confirm it in Step 5.
@@ -135,12 +135,14 @@ Check automatically:
 
 Then show one compact table with the GD inventory: hostname, platform, chassis product #, chassis serial, SolOS, power redundancy + each power module state, blades (slot, type, product #, serial, state), and `missing_required` if non-empty. If both checks pass, don't ask the user to confirm the unit separately; go to Step 3.
 
-## Step 3: Part(s) and support tier
+## Step 3: Part and support tier
 
 Read `${CLAUDE_PLUGIN_ROOT}/context/rma-jira-fields.md` now if you haven't.
 
+An RMA always covers exactly one part. It's named in the Summary only; the Description has no parts list.
+
 Use one AskUserQuestion call with:
-- **Part(s) to replace** (multiSelect). Pre-fill options from the inventory, e.g. `ADB ADB-000004-01-A slot 1/3`, `NAB NAB-0810EM-01-A slot 1/6`, `PSU (power module 2: Failed)`, `Full appliance CHS-3560AC-05-A`. Put components that look faulty first. "Other" covers SFP / HBA / disk / fan.
+- **Part to replace** (single select). Pre-fill options from the inventory, e.g. `ADB ADB-000004-01-A slot 1/3`, `NAB NAB-0810EM-01-A slot 1/6`, `PSU (power module 2: Failed)`, `Full appliance CHS-3560AC-05-A`. Put components that look faulty first. "Other" covers SFP / HBA / disk / fan.
 - **Support tier**: `Platinum` / `Platinum+` / `Nuances`. **Only include this question if Step 1b didn't settle the tier.**
 
 Then a follow-up AskUserQuestion, depending on the tier:
@@ -150,7 +152,7 @@ Then a follow-up AskUserQuestion, depending on the tier:
 
 Nuances use the direct Summary format.
 
-For "Other" parts, find the part number per the part-number lookup guide in rma-jira-fields.md. PSU, fan, and the Solace orderable part for SFPs/disks may not be in the GD: ask in Step 5.
+For an "Other" part, find the part number per the part-number lookup guide in rma-jira-fields.md. PSU, fan, and the Solace orderable part for SFPs/disks may not be in the GD: ask in Step 5.
 
 ## Step 4: Evidence scan (delegated)
 
@@ -160,7 +162,7 @@ Prompt the subagent with:
 - the absolute GD folder path,
 - the absolute path to `extract_gd.py`,
 - the absolute path to `evidence-guide.md` (tell it to read it first),
-- the selected part type(s) and the inventory facts that matter (e.g. "Power module 2: Failed"),
+- the selected part type and the inventory facts that matter (e.g. "Power module 2: Failed"),
 - instructions: run `extract_gd.py sections <gd>`, read the relevant sections with `extract_gd.py section`, discover log files under the GD folder with `find` (don't assume a layout), grep them per the guide, and **return at most 10 concise findings** with exact section names / quoted log lines + a list of suggested sections to include + sections it looked for but didn't find. **It must not write any files** and must not invent output.
 
 When it returns, show the findings, then ask (AskUserQuestion, multiSelect) which suggested sections to include in the Description. `show hardware detail` and `show product-key` are always included and don't need to be offered; for a full appliance, `show version`, `show ip vrf management` and `show console` are also always included.
@@ -201,7 +203,7 @@ requesting only `summary`, `status`, `created`, maxResults ~10. If anything matc
 
 ## Step 7: Compose and preview
 
-**Summary:** apply the decision table in rma-jira-fields.md §2 (always the `RMA: ` prefix; multiple parts → one RMA, part#s joined with ` and `, no serial; full appliance → chassis product #).
+**Summary:** apply the decision table in rma-jira-fields.md §2 (always the `RMA: ` prefix; one part per RMA; full appliance → chassis product #).
 
 **Description:** follow the template and per-condition rules in rma-jira-fields.md §3. Get the CLI text with:
 

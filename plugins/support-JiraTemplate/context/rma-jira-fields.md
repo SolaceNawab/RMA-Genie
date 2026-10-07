@@ -46,15 +46,13 @@ Nuances use the **direct (Platinum) Summary format**; the exception is explained
 
 Always start with the literal prefix `RMA: ` (a live audit found 10/50 tickets without it).
 
-| Tier | Parts | Summary format |
-|---|---|---|
-| Platinum or Nuances | Single | `RMA: Replace <Failed Part#> <Chassis S/N> for <Customer> in <Country>` |
-| Platinum+ | Single | `RMA: Replace <Failed Part#> <Chassis S/N> for <Customer> via <Partner> <Location> Order# <WO#>` |
-| Platinum or Nuances | Multiple | `RMA: Replace <Part#1> and <Part#2>[ and <Part#N>] for <Customer> in <Country>` (no serial) |
-| Platinum+ | Multiple | `RMA: Replace <Part#1> and <Part#2> for <Customer> via <Partner> <Location> Order# <WO#>` (no serial) |
+| Tier | Summary format |
+|---|---|
+| Platinum or Nuances | `RMA: Replace <Failed Part#> <Chassis S/N> for <Customer> in <Country>` |
+| Platinum+ | `RMA: Replace <Failed Part#> <Chassis S/N> for <Customer> via <Partner> <Location> Order# <WO#>` |
 
 Rules:
-- **Multiple parts = ONE RMA.** Join part numbers with ` and `, drop the chassis serial.
+- **One part per RMA.** The Summary is the only place the part is named; the Description has no parts list.
 - **Full appliance:** Part# = the chassis product # (e.g. `CHS-3560AC-05-A`).
 - **Customer** = the short business name the user supplies (e.g. `ACME`), not the legal name.
 - **Partner** = `Flash`, `Maintech` or `Fujitsu`; **Location** = the depot city/country (e.g. `Singapore`).
@@ -62,8 +60,8 @@ Rules:
 Examples (synthetic):
 - `RMA: Replace CHS-3560AC-05-A S009000001 for ACME in Singapore`
 - `RMA: Replace CHS-3560AC-05-A S009000001 for ACME via Flash Singapore Order# 1234`
-- `RMA: Replace ADB-000004-01-A and SFPP-PC02 for ACME in Germany`
-- `RMA: Replace ADB-000004-01-A and SFPP-PC02 for ACME via Maintech Frankfurt Order# 5678`
+- `RMA: Replace ADB-000004-01-A S009000001 for ACME in Germany`
+- `RMA: Replace ADB-000004-01-A S009000001 for ACME via Maintech Frankfurt Order# 5678`
 
 ## 3. Description template
 
@@ -73,9 +71,16 @@ Use markdown (`contentFormat: markdown`). `[..]` = conditional. Each CLI section
 [Platinum+ only] Faulty appliance S/N <chassis S/N> will be replaced with appliance S/N <replacement S/N> from <Partner> <Location>
 
 Company: <Customer>
-Shipping address: <address>
-[Data center address: <address>]
-Contact person: <name> <phone>
+
+```
+Shipping address
+<company name as on the address>
+<street, city, postcode[, country]>
+<contact name> Contact Number <phone>
+```
+
+[Data center address: same code-block layout, only if different]
+
 [Booking ref / change request: <ref>]
 SolOS: <version from show version>
 Support level: <see rule below>
@@ -83,10 +88,6 @@ Support level: <see rule below>
 [High priority] Priority justification: <reason>
 Salesforce case: <case number>
 Related Support Jira: SOL-xxxxx
-
-**Parts to replace:**
-- Part 1: <product name>, <part#>, S/N <serial>, slot <x/y>
-- [Part N: ...]
 
 **Diagnostics:**
 
@@ -114,7 +115,8 @@ Per-condition rules:
 | Condition | Rule |
 |---|---|
 | Opening "Faulty appliance ... replaced with ..." line | Platinum+ only. The replacement S/N comes from Ops (a person tells the engineer): ask the user. If unknown, write `replacement S/N: TBD (Ops to assign)`. For a part (not full appliance) replacement, adapt: `Faulty <part#> S/N <serial> in appliance S/N <chassis> will be replaced from <Partner> <Location>`. |
-| Data center address | Only when it differs from the shipping address. |
+| Shipping address | Always its own fenced code block, four lines: the literal `Shipping address`, the company name as written on the address (e.g. `Barclays PLC`, not the Summary short name), the street / city / postcode on one line, then `<contact name> Contact Number <phone>` (e.g. `DCOPS Contact Number 02031344800`). From the inventory `address`: the first comma-separated part is the company, the rest up to `Attn:` is the street line, and the `Attn:` part gives the contact name and phone. With several phone numbers, keep them on the one line separated by ` / `. |
+| Data center address | Only when it differs from the shipping address. Same code-block layout, headed `Data center address`, without the contact line. |
 | Support level line | `Platinum` / `Platinum+ (Yes)` / `Platinum+ (Hybrid)` / `Platinum+ (In-Country Local Spares)` / `Platinum+ exception: shipped from HQ (part not stocked at partner depot)` / `Platinum+ exception: shipped from HQ (partner out of stock; please backfill <Partner> <Location> depot)` |
 | Work order line | Platinum+ only (including Nuances where a WO exists). |
 | Priority justification | Only when Priority = High. |

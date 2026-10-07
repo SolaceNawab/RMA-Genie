@@ -6,11 +6,11 @@ Claude Code plugin that raises standardized **OPS RMA** Jira tickets for Solace 
 
 1. Asks for the **chassis serial** of the faulty appliance first, then **looks it up in the Shipment Inventory Record** (via support-rma) for the customer, support tier, MTCE status, shipping address, contact and spare provider. These pre-fill the rest of the ticket.
 2. Gets the gather-diagnostics: it reuses an already-extracted bundle whose chassis serial matches, otherwise it runs **`/support-jira:draft-jira`** to pick, decrypt and extract the archive. If the archive isn't downloaded yet, it can fetch it from `filedrop.solace.com` instead (support-gd-handler). It then reads the bundle (hostname, chassis part number and serial, SolOS, blades, power modules) and checks that the chassis serial matches the one you gave, which guards against using the HA mate's bundle.
-3. Asks for the part type(s) (PSU / ADB / NAB / SFP / HBA / disk / fan / full appliance). It asks for the support tier only if the inventory lookup couldn't settle it. For Platinum+ it asks for the sub-level (Yes / Hybrid / In-Country Local Spares) or a **Nuance** (part not stocked at the partner depot, or partner out of stock).
+3. Asks for the one part to replace (PSU / ADB / NAB / SFP / HBA / disk / fan / full appliance). It asks for the support tier only if the inventory lookup couldn't settle it. For Platinum+ it asks for the sub-level (Yes / Hybrid / In-Country Local Spares) or a **Nuance** (part not stocked at the partner depot, or partner out of stock).
 4. Scans the bundle for failure evidence and suggests extra CLI sections to include. You choose which ones go in.
 5. Collects the remaining case details (case #, SOL, priority, watchers, work order, ...) in a single prompt, with the inventory values pre-filled so you only correct them.
 6. Searches OPS for an existing RMA on the same serial.
-7. Builds the Summary using the runbook format for the tier, and the Description in the standard layout (header block, parts list, CLI in code blocks, issue summary). It then **shows you a preview and lets you edit it until you approve**.
+7. Builds the Summary using the runbook format for the tier, and the Description in the standard layout (header block with the shipping address in a code block, CLI in code blocks, issue summary). The part is named in the Summary only. It then **shows you a preview and lets you edit it until you approve**.
 8. Creates the ticket (priority, `Flash`/`Maintech` label, **Relates** link to the SOL Jira). It finishes by printing the key, the watchers you need to add, and a Salesforce reminder.
 
 If no Atlassian connection is available, it gives you paste-ready text instead.
@@ -60,8 +60,6 @@ Or ask in plain language:
 |------|--------|
 | Platinum / Nuance (shipped from HQ) | `RMA: Replace <Part#> <Serial> for <Customer> in <Country>` |
 | Platinum+ (Flash / Maintech) | `RMA: Replace <Part#> <Serial> for <Customer> via <Partner> <Location> Order# <WO>` |
-| Several parts | Part numbers joined with `and`, serial left out |
-
 Full field rules are in [`context/rma-jira-fields.md`](context/rma-jira-fields.md).
 
 ## Layout
