@@ -1,7 +1,7 @@
 ---
 name: raise-rma
-description: "Raises Operations (OPS) RMA Jira tickets for Solace hardware appliance replacements (PSU, ADB, NAB, SFP, HBA, disk, fan, or full appliance) following the Hardware Replacement Workflow. Parses an extracted gather-diagnostics bundle for the chassis serial, part numbers, SolOS version, product keys and failure evidence, applies the Platinum / Platinum+ / exception Summary conventions, drafts the Description for user review, checks for duplicate RMAs, then creates the ticket via the Atlassian MCP (or produces paste-ready text). Use when a support case needs a hardware replacement, an RMA, a part shipment from HQ, or a Flash/Maintech partner backfill ticket."
-argument-hint: "[extracted-GD-folder]"
+description: "Raises Operations (OPS) RMA Jira tickets for Solace hardware appliance replacements (PSU, ADB, NAB, SFP, HBA, disk, fan, or full appliance) following the Hardware Replacement Workflow. Asks for the chassis serial first and looks up the support tier, customer and shipping address in the Shipment Inventory Record (via support-rma), decrypts the gather-diagnostics via /support-jira:draft-jira, parses it for part numbers, SolOS version, product keys and failure evidence, applies the Platinum / Platinum+ / exception Summary conventions, drafts the Description for user review, checks for duplicate RMAs, then creates the ticket via the Atlassian MCP (or produces paste-ready text). Use when a support case needs a hardware replacement, an RMA, a part shipment from HQ, or a Flash/Maintech partner backfill ticket."
+argument-hint: "[serial | extracted-GD-folder]"
 ---
 
 # Raise an OPS RMA ticket
@@ -25,9 +25,9 @@ Keep this checklist in chat and tick items as you go:
 
 ```
 [ ] 0 Pre-flight (MCP / draft mode)
-[ ] 1 Case # + customer collected, GD fetched/located
-[ ] 2 Faulty unit confirmed
-[ ] 3 Part(s) + tier chosen
+[ ] 1 Serial collected + entitlement looked up
+[ ] 2 GD located/decrypted + faulty unit confirmed
+[ ] 3 Part(s) chosen (+ tier, only if the lookup didn't settle it)
 [ ] 4 Evidence scanned + sections chosen
 [ ] 5 Case details collected
 [ ] 6 Duplicate check
@@ -44,26 +44,64 @@ Check which Atlassian MCP tools are available. Teammates have either the direct 
 - If found: optionally call `getAccessibleAtlassianResources` to confirm access to `sol-jira.atlassian.net` (cloudId `f76135b4-3004-44fe-a1bc-bd189b6e79f3`).
 - If none is available, or auth fails: announce **DRAFT MODE**. Everything still works, but Step 6 is skipped and Step 8 outputs paste-ready text instead of creating the ticket.
 
-## Step 1: Case number, customer, and the GD
+## Step 1: Serial number and entitlement
 
-**First, ask in one plain-text message** (skip whatever the user already gave):
+### 1a. Serial number (ask first)
 
+The chassis serial of the faulty appliance drives everything else, so get it before anything else. If the argument looks like a serial (7+ characters containing digits, not an existing path, e.g. `S009004123`) or the user already gave one in the conversation, use it. Otherwise ask in plain text:
+
+> What's the chassis serial number of the faulty appliance?
+
+Don't guess or invent a serial. If the user doesn't know it, ask for the extracted GD folder or the archive instead and take the serial from the GD in Step 2 (then run 1b on it).
+
+### 1b. Entitlement lookup (automatic)
+
+Look up the serial in the Shipment Inventory Record with the support-rma plugin's serial lookup (the same one `/support-rma:inventory` uses). Don't ask the user first.
+
+Find the newest installed copy of the script and run it in the foreground (it takes a few seconds):
+
+```bash
+INV=$(ls -d ~/.claude/plugins/cache/coop-support-hack/support-rma/*/scripts/inventory.sh 2>/dev/null | sort -V | tail -1)
+"$INV" lookup "<serial>" --state-dir "$HOME/.claude/plugins/data/support-rma-coop-support-hack"
 ```
-- Salesforce case number (e.g. 00083338):
-- Customer name as it appears in filedrop (e.g. "rbc"):
-```
 
-The case number goes into the ticket and is the filedrop folder name. Customer names in filedrop are lowercase and prefix-matched, so pass through whatever the user gives.
+The output is JSON. Each `results[]` entry has `customer`, `support_tier` (`Platinum+` when Premium Onsite Support is Yes, otherwise `Platinum`), `mtce_eligible`, `mtce_can_provide`, `mtce_contract_active`, `chassis`, `dest_city`, `address` (usually ends with `Attn: <name>, <phone>`), `hw_spare_provided_by`, `sheet` and `row`. Keep these values in the conversation only (rule 1). Don't save the JSON.
 
-Then get the GD, in this order:
+How to use the result:
+
+| Result | What to do |
+|---|---|
+| One row, or several rows that agree on customer, tier, chassis and address | Use it. Say "Entitlement from the inventory sheet: <tier> (<customer>, row <row>)". Don't ask about the tier. |
+| Several rows that differ | List them (row, customer, tier, chassis, dest city) and ask which applies. |
+| `mtce_eligible: false` | Warn: "Maintenance not active per the sheet (can provide: <x>, contract active: <y>)". This is a warning only. Ask whether to continue; the engineer decides. |
+| Serial in `not_found`, `$INV` empty (support-rma not installed), or a non-zero exit | Say why in one line (show stderr on a non-zero exit; exit 3 usually means Excel isn't signed in, see `/support-rma:inventory`). Then fall back to asking the tier in Step 3 and the case details in Step 5. |
+
+Derive these values from the result and treat them as pre-filled defaults for later steps:
+- **Tier:** `support_tier`.
+- **Customer short name:** `customer`.
+- **Country:** the country at the end of `address` (e.g. `UK`). If it isn't clear, leave it blank for Step 5.
+- **Shipping address:** `address` without the trailing `Attn:` part.
+- **Contact name + phone:** the `Attn:` part of `address`, if present.
+- **Platinum+ partner:** `hw_spare_provided_by`, if it names Flash, Maintech or Fujitsu.
+- **Platinum+ partner location:** `dest_city`, as a suggestion only. Confirm it in Step 5.
+- **Expected chassis product #:** `chassis`, checked against the GD in Step 2c.
+
+Show the entitlement as one short block (customer, tier, MTCE eligibility, chassis, dest city, hardware spare provided by), then go straight to Step 2.
+
+## Step 2: Get the GD and confirm the faulty unit
+
+### 2a. Locate or decrypt the GD
+
+In this order:
 
 1. **An argument path was given:** use it.
-2. **Already extracted in the cwd:** directories named `gather-diagnostics*` that contain `cli-diagnostics.txt` or `gdh-diagnostics.txt`, possibly nested as `<f>/<f>/`. `find . -maxdepth 3 \( -name cli-diagnostics.txt -o -name gdh-diagnostics.txt \)` finds them. If they exist, ask whether to use them or fetch fresh from filedrop.
-3. **Otherwise, fetch from filedrop** (the normal case). This uses support-gd-handler's scripts at these exact fixed paths. Don't search for them and don't read them:
+2. **Already extracted:** directories named `gather-diagnostics*` in the cwd or `~/Downloads` that contain `cli-diagnostics.txt` or `gdh-diagnostics.txt`, possibly nested as `<f>/<f>/` (`find . ~/Downloads -maxdepth 3 \( -name cli-diagnostics.txt -o -name gdh-diagnostics.txt \)`). Run `inventory` (2b) on each and keep the one whose `chassis_serial` equals the Step 1 serial. Exactly one match → use it without asking. None → treat as not found. Ignore the others (an HA mate's GD looks almost identical).
+3. **Otherwise, decrypt with `/support-jira:draft-jira`** (the normal case). Invoke it with the Skill tool, passing the serial as `args` so it doesn't ask again. It opens a file picker for the `.tgz.p7m`, decrypts it (on Windows it prints a Microsoft sign-in URL + code; relay them), extracts it into `<archive>-extracted`, and reports the folder. Its final "drafting isn't wired up" note doesn't apply here: take the extracted folder it reports and continue with 2b. Ignore its support-plan line; Step 1b already settled the tier. If the skill isn't available, tell the user to install it (`/plugin install support-jira@coop-support-hack`) and fall back to option 4 or 5.
+4. **The archive isn't on this machine yet: fetch from filedrop.** Ask for the Salesforce case number and the customer name as it appears in filedrop (lowercase, prefix-matched, e.g. "rbc"). This uses support-gd-handler's scripts at these exact fixed paths. Don't search for them and don't read them:
    - `FD=~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/scripts/filedrop.py`
    - `HG=~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/scripts/handle_gds.py`
 
-   If `filedrop.py` doesn't exist, tell the user to install support-gd-handler (`/plugin install support-gd-handler@support-marketplace`) and fall back to option 4.
+   If `filedrop.py` doesn't exist, tell the user to install support-gd-handler (`/plugin install support-gd-handler@support-marketplace`) and fall back to option 5.
 
    Steps:
    1. Before running anything, tell the user: *"Fetching from filedrop. If Microsoft sign-in is needed, a URL and code will appear below. Complete the sign-in and it continues automatically."*
@@ -77,11 +115,9 @@ Then get the GD, in this order:
    6. Then go back to option 2 to find the extracted folders.
 
    Don't run `rm` or `mkdir` around this; support-gd-handler cleans up after itself. If it errors (extraction failed, unexpected wrapper, `PermissionError`), show the error verbatim and point the user to `/support-gd-handler:fetch-gds`, which knows the workarounds. Don't improvise fixes.
-4. **Manual fallback** (filedrop unavailable or the user prefers it): use `/support-jira:draft-jira`, or ask for the chassis serial and whatever CLI output the user can paste (`show hardware detail`, `show product-key`, ...). In the manual fallback, use only what the user pasted.
+5. **Manual fallback** (no GD available): ask for whatever CLI output the user can paste (`show hardware detail`, `show product-key`, ...) and use only what the user pasted.
 
-**Several extracted GDs:** run `inventory` on each, list them by hostname + chassis serial, and ask which one is the faulty unit.
-
-## Step 2: Inventory and confirm the faulty unit
+### 2b. GD inventory
 
 Run:
 
@@ -89,23 +125,30 @@ Run:
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/extract_gd.py" inventory "<gd>"
 ```
 
-Exit 2 means no diagnostics file was found at that path (go back to Step 1).
+Exit 2 means no diagnostics file was found at that path (go back to 2a).
 
-Show a compact table: hostname, platform, chassis product #, chassis serial, SolOS, power redundancy + each power module state, blades (slot, type, product #, serial, state), and `missing_required` if non-empty.
+### 2c. Confirm
 
-Ask the user to **confirm this is the faulty unit** and that the chassis serial matches the case. If it doesn't match, **stop and ask**: it's likely the HA mate's GD, and an RMA against the wrong serial ships the wrong hardware.
+Check automatically:
+- GD `chassis_serial` = the Step 1 serial. If not, **stop and ask**: it's likely the HA mate's GD, and an RMA against the wrong serial ships the wrong hardware. Never mix nodes.
+- GD `chassis_product` = the sheet's `chassis` (from 1b). If not, flag it: it may be the wrong GD or a sheet error. The user decides.
+
+Then show one compact table with the GD inventory: hostname, platform, chassis product #, chassis serial, SolOS, power redundancy + each power module state, blades (slot, type, product #, serial, state), and `missing_required` if non-empty. If both checks pass, don't ask the user to confirm the unit separately; go to Step 3.
 
 ## Step 3: Part(s) and support tier
 
 Read `${CLAUDE_PLUGIN_ROOT}/context/rma-jira-fields.md` now if you haven't.
 
-Use one AskUserQuestion call with two questions:
-- **(a) Part(s) to replace** (multiSelect). Pre-fill options from the inventory, e.g. `ADB ADB-000004-01-A slot 1/3`, `NAB NAB-0810EM-01-A slot 1/6`, `PSU (power module 2: Failed)`, `Full appliance CHS-3560AC-05-A`. Put components that look faulty first. "Other" covers SFP / HBA / disk / fan.
-- **(b) Support tier**: `Platinum` / `Platinum+` / `Nuances`.
+Use one AskUserQuestion call with:
+- **Part(s) to replace** (multiSelect). Pre-fill options from the inventory, e.g. `ADB ADB-000004-01-A slot 1/3`, `NAB NAB-0810EM-01-A slot 1/6`, `PSU (power module 2: Failed)`, `Full appliance CHS-3560AC-05-A`. Put components that look faulty first. "Other" covers SFP / HBA / disk / fan.
+- **Support tier**: `Platinum` / `Platinum+` / `Nuances`. **Only include this question if Step 1b didn't settle the tier.**
 
-Then a follow-up AskUserQuestion:
-- Platinum+ → sub-level: `Yes (part + FE within 4h)` / `Hybrid (part, no FE)` / `In-Country Local Spares`.
-- Nuances → `(i) part not stocked at partner depot` / `(ii) partner out of stock (Spare Qty = 0)`. Nuances use the direct Summary format.
+Then a follow-up AskUserQuestion, depending on the tier:
+- **Platinum** (from the sheet or the user): no follow-up.
+- **Platinum+** → sub-level, with the Nuances as extra options, because the sheet can't tell whether this shipment is an exception: `Yes (part + FE within 4h)` / `Hybrid (part, no FE)` / `In-Country Local Spares` / `Nuance: ship from HQ`. If the user picks the Nuance option, ask `(i) part not stocked at partner depot` / `(ii) partner out of stock (Spare Qty = 0)`.
+- **Nuances** (chosen by the user when there was no lookup) → `(i) part not stocked at partner depot` / `(ii) partner out of stock (Spare Qty = 0)`.
+
+Nuances use the direct Summary format.
 
 For "Other" parts, find the part number per the part-number lookup guide in rma-jira-fields.md. PSU, fan, and the Solace orderable part for SFPs/disks may not be in the GD: ask in Step 5.
 
@@ -124,9 +167,12 @@ When it returns, show the findings, then ask (AskUserQuestion, multiSelect) whic
 
 ## Step 5: Collect case details (one message)
 
-Ask for everything still missing in **one** message, as a checklist, so the user can answer in one go:
+Ask for everything still missing in **one** message, as a checklist, so the user can answer in one go.
+
+Fill in the values from the Step 1b lookup and mark them `(from inventory sheet)`. The user only needs to correct them, not retype them. Leave out the Platinum+ lines for a Platinum customer. Don't re-ask anything the user has already given in the conversation.
 
 ```
+- Salesforce case number (skip if already given):
 - Customer short name for the Summary (e.g. "ACME"; may differ from the filedrop name):
 - Country (Platinum / Nuances Summary):
 - Shipping address:
@@ -205,8 +251,11 @@ Salesforce case <case number>: add <KEY> to the Jira tab and set Hardware Fault 
 | Situation | What to do |
 |---|---|
 | MCP missing or auth fails | DRAFT MODE: paste-ready output. |
-| GD serial ≠ case serial | Stop and ask. Never mix nodes. |
-| Several GDs | List them by hostname + serial and ask. |
+| GD chassis serial ≠ Step 1 serial | Stop and ask. Never mix nodes. |
+| Inventory lookup unavailable / serial not found | Say why in one line; ask the tier (Step 3) and case details (Step 5) as usual. |
+| Sheet chassis ≠ GD chassis product # | Flag it at the Step 2c confirmation; the user decides. |
+| MTCE not active per the sheet | Warn and ask whether to continue; don't block. |
+| Several GDs | Use the one matching the Step 1 serial; if none or several match, list them by hostname + serial and ask. |
 | Section missing (older SolOS, gdh format) | List what's missing; ask the user to paste it, or write "not available in GD". |
 | Possible duplicate RMA | Show it and ask whether to continue. |
 | Watcher not found / ambiguous | Show candidates and ask; never guess. |
@@ -216,7 +265,7 @@ Salesforce case <case number>: add <KEY> to the Jira tab and set Hardware Fault 
 
 ## Roadmap (not in this version)
 
-- **Phase 2:** automatic entitlement lookup by chassis serial from the Shipment Inventory Record / Platinum Plus Maintenance Excel sheets (tier, sub-level, customer short name, country, partner, depot).
+- **Phase 2 (rest):** the Shipment Inventory Record lookup is done (Step 1b). Still to do: read the Platinum Plus Maintenance sheet for the sub-level, partner depot and Spare Qty, so Platinum+ sub-levels and Nuance (ii) can be detected too.
 - support-log-buddy integration for the evidence scan.
 - A post-install update mode (add install / return details to an existing RMA).
 - Salesforce lookup to pre-fill case details.

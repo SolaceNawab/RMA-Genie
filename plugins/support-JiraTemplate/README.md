@@ -4,11 +4,11 @@ Claude Code plugin that raises standardized **OPS RMA** Jira tickets for Solace 
 
 ## What it does
 
-1. Asks for the **Salesforce case number** and the **customer's filedrop name**, then fetches the case's gather-diagnostics from `filedrop.solace.com`, decrypts and extracts them (using support-gd-handler's filedrop client). It skips this if you pass a folder or the bundle is already extracted.
-2. Reads the extracted bundle and pulls out the hostname, chassis part number and serial, SolOS version, blades and power modules. It asks you to confirm this is the faulty unit, which guards against using the HA mate's bundle.
-3. Asks for the part type(s) (PSU / ADB / NAB / SFP / HBA / disk / fan / full appliance) and the support tier: **Platinum**, **Platinum+** (Yes / Hybrid / In-Country Local Spares), or a **Nuance** (part not stocked at the partner depot, or partner out of stock).
+1. Asks for the **chassis serial** of the faulty appliance first, then **looks it up in the Shipment Inventory Record** (via support-rma) for the customer, support tier, MTCE status, shipping address, contact and spare provider. These pre-fill the rest of the ticket.
+2. Gets the gather-diagnostics: it reuses an already-extracted bundle whose chassis serial matches, otherwise it runs **`/support-jira:draft-jira`** to pick, decrypt and extract the archive. If the archive isn't downloaded yet, it can fetch it from `filedrop.solace.com` instead (support-gd-handler). It then reads the bundle (hostname, chassis part number and serial, SolOS, blades, power modules) and checks that the chassis serial matches the one you gave, which guards against using the HA mate's bundle.
+3. Asks for the part type(s) (PSU / ADB / NAB / SFP / HBA / disk / fan / full appliance). It asks for the support tier only if the inventory lookup couldn't settle it. For Platinum+ it asks for the sub-level (Yes / Hybrid / In-Country Local Spares) or a **Nuance** (part not stocked at the partner depot, or partner out of stock).
 4. Scans the bundle for failure evidence and suggests extra CLI sections to include. You choose which ones go in.
-5. Collects the shipping, contact, partner, work order, SOL and watcher details in a single prompt.
+5. Collects the remaining case details (case #, SOL, priority, watchers, work order, ...) in a single prompt, with the inventory values pre-filled so you only correct them.
 6. Searches OPS for an existing RMA on the same serial.
 7. Builds the Summary using the runbook format for the tier, and the Description in the standard layout (header block, parts list, CLI in code blocks, issue summary). It then **shows you a preview and lets you edit it until you approve**.
 8. Creates the ticket (priority, `Flash`/`Maintech` label, **Relates** link to the SOL Jira). It finishes by printing the key, the watchers you need to add, and a Salesforce reminder.
@@ -19,12 +19,12 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 
 ## Prerequisites
 
-- **[support-gd-handler](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-gd-handler)** from support-marketplace (`/plugin install support-gd-handler@support-marketplace`). raise-rma uses its `filedrop.py` and `handle_gds.py`. Their requirements apply too:
+- **[support-jira](../support-JiraCreation)** from this marketplace (`/plugin install support-jira@coop-support-hack`). raise-rma uses `/support-jira:draft-jira` to decrypt and extract the bundle.
+- **[support-gd-handler](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-gd-handler)** from support-marketplace (`/plugin install support-gd-handler@support-marketplace`). Optional: raise-rma uses its `filedrop.py` and `handle_gds.py` only to fetch a bundle that isn't downloaded yet. Their requirements apply too:
   - `pip install -r ~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/requirements.txt` (installs `requests`)
   - `decrypt-cms`: bundled with the plugin on Windows. On Linux/macOS it must be on `PATH` or reachable through the RND shared load.
-
-  If you don't have these, decrypt the bundle another way (e.g. `/support-jira:draft-jira`) and pass the extracted folder.
 - **Python 3** (standard library only). It's used by `scripts/extract_gd.py`.
+- **[support-rma](../support-SupportPlans)** from this marketplace (`/plugin install support-rma@coop-support-hack`), plus a OneDrive-synced copy of the Shipment Inventory Record or a signed-in desktop Excel. Without it, raise-rma asks for the tier and case details by hand.
 - **An Atlassian MCP connection** to `sol-jira.atlassian.net`. Either of the following works:
   - **The Atlassian MCP server, added directly.** This works with any Claude Code login, including gateway/API-token setups:
     ```
@@ -43,7 +43,8 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 ## Usage
 
 ```
-/support-rma-jira:raise-rma                                   # asks for the case # + customer, fetches the GDs from filedrop
+/support-rma-jira:raise-rma                                   # asks for the serial, looks it up, decrypts the GD via draft-jira
+/support-rma-jira:raise-rma S009004123                        # serial given up front
 /support-rma-jira:raise-rma ./gather-diagnostics_<host>_...   # explicit extracted GD folder
 ```
 
