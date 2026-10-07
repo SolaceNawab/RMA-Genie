@@ -9,12 +9,14 @@ are ready.
 
 | | |
 |---|---|
-| `/support-jira:draft-jira` | serial number → support plan → pick archive → decrypt → extract |
+| `/support-jira:draft-jira` | serial number → support plan (looked up) → pick archive → decrypt → extract |
 | "decrypt this gather-diagnostics bundle" | the skill also triggers on plain requests |
 
 The skill:
 1. Asks for the device serial number.
-2. Asks for the support plan (Platinum or Platinum+).
+2. Looks up the support plan (Platinum or Platinum+) in the Shipment Inventory
+   Record through the support-rma plugin. It asks only if the serial isn't in the
+   sheet, matches rows with different tiers, or the lookup fails.
 3. Opens a native file picker to choose the `.tgz.p7m` archive, or asks for
    the path in text if no picker is available.
 4. Decrypts the archive with `decrypt-cms`.
@@ -40,6 +42,8 @@ File pickers: Windows Forms dialog (PowerShell), `osascript` on macOS, and
 - **Windows:** install the `support-gd-handler` plugin from support-marketplace.
   It ships `decrypt-cms.exe`.
 - **Linux:** the RND shared loads mounted at `/home/public`, or `decrypt-cms` on `$PATH`.
+- The **support-rma** plugin (`/plugin install support-rma@coop-support-hack`)
+  for the support-plan lookup. Without it the skill asks for the plan instead.
 - A Solace Microsoft account for the decrypt sign-in.
 - The **atlassian** plugin (`/plugin install atlassian@claude-plugins-official`)
   for Jira access. The repo's `.claude/settings.json` enables it, so Claude Code

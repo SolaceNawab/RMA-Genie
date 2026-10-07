@@ -1,7 +1,7 @@
 {
   "name": "support-jira",
   "displayName": "Support Jira",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Collect a support case's serial number and support plan, then decrypt and extract the customer's gather-diagnostics bundle; foundation for automated Jira ticket drafting.",
   "author": {
     "name": "Anthony Farkouh"
