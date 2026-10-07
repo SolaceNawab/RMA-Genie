@@ -1,0 +1,18 @@
+{
+  "name": "support-rma-jira",
+  "displayName": "Support RMA Jira",
+  "version": "0.1.0",
+  "description": "Raise standardized OPS RMA Jira tickets for Solace appliance hardware replacements from gather-diagnostics.",
+  "author": {
+    "name": "Jamil Wansa"
+  },
+  "license": "MIT",
+  "keywords": [
+    "rma",
+    "jira",
+    "hardware",
+    "appliance",
+    "replacement",
+    "support"
+  ]
+}
