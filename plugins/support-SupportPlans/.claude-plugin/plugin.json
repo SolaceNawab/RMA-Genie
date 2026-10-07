@@ -1,7 +1,7 @@
 {
   "name": "support-rma",
   "displayName": "Support RMA",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Look up serials (customer, Platinum/Platinum+ tier, MTCE eligibility, chassis, address) and list available replacement units from the live Shipment Inventory Record; foundation for automated RMA generation.",
   "author": {
     "name": "Nawab Amedi"

@@ -2,6 +2,9 @@
 
 Claude Code plugin that raises standardized **OPS RMA** Jira tickets for Solace hardware appliance replacements. It automates Step 3 ("Open an RMA in Jira") of the [Hardware Replacement Workflow](https://sol-jira.atlassian.net/wiki/spaces/SS/pages/3758332688/Hardware+Replacement+Workflow).
 
+**macOS:** see the repo README's [macOS setup](../../README.md#macos-setup). Decrypting gather-diagnostics isn't possible on a Mac, so decrypt on a dev server and copy the extracted folder over.
+
+
 ## What it does
 
 1. Asks for the **chassis serial** of the faulty appliance first, then **looks it up in the Shipment Inventory Record** (via support-rma) for the customer, support tier, MTCE status, shipping address, contact and spare provider. These pre-fill the rest of the ticket.

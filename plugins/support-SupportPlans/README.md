@@ -10,6 +10,21 @@ Reads the live **Shipment Inventory Record** spreadsheet. It does two things:
 
 It is the inventory half of a future automated RMA workflow.
 
+**macOS:** see the repo README's [macOS setup](../../README.md#macos-setup) (Python 3, OneDrive sync, Full Disk Access for your terminal app).
+
+## Platforms
+
+`scripts/inventory.sh` works on **Windows, macOS and Linux** and picks a backend
+for the OS:
+- **Windows** (Git Bash): the PowerShell scripts (`lookup_serial.ps1`, `read_inventory.ps1`).
+- **macOS / Linux**: `scripts/inventory.py`, a Python 3 port using the standard
+  library only. It takes the same arguments and gives the same JSON and exit codes.
+
+The one difference is that the SharePoint fetch through Excel (step 3 below) is
+Windows-only, because it drives Excel over COM. On a Mac the file must be synced
+(step 2) or set as `inventory_path`. To try the Python backend on Windows, set
+`SUPPORT_RMA_BACKEND=python`.
+
 ## How "live" works
 
 The spreadsheet lives on the Operations SharePoint site, which needs a Solace
@@ -31,7 +46,9 @@ To set up the synced copy (one time):
    toolbar if it's offered. Using "Add shortcut" on the *file* only creates a `.url`
    link, and that doesn't work.
 3. Wait for OneDrive to finish. The file appears under
-   `C:\Users\<you>\Solace Corporation\Operations - Ship Spreadsheet\`.
+   `C:\Users\<you>\Solace Corporation\Operations - Ship Spreadsheet\` on Windows,
+   or under `~/Library/CloudStorage/OneDrive-<org>/` on a Mac. The Mac needs OneDrive
+   for Mac signed in to your Solace account.
 
 The scripts find the file by themselves. They skip copies named "Copy of …" or
 "… - Copy".
@@ -65,6 +82,9 @@ scripts/inventory.sh [--path FILE] [--url URL] [--state-dir DIR] [--serial-colum
   to read it and the file is never locked.
 - `scripts/inventory_source.ps1`: finds the file, and fetches it from SharePoint
   when needed. Both scripts use it.
+- `scripts/inventory.py`: the macOS / Linux backend for both modes
+  (`inventory.py lookup|list`). It ports the same parsing, strikethrough and
+  source rules, apart from the Excel fetch.
 
 Strikethrough detection, the same in both scripts:
 - cell font strikethrough (a struck serial cell, or a whole struck row) → crossed off
@@ -82,5 +102,8 @@ with Excel installed:
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/make_fixture.ps1
 scripts/inventory.sh --path tests/fixture_inventory.xlsx -Format table
 ```
+
+On macOS / Linux the second command runs the Python backend; on Windows,
+`SUPPORT_RMA_BACKEND=python scripts/inventory.sh ...` checks it against the same fixture.
 
 Expected: Ottawa 4 available / 2 crossed off (FAKE-0004 partial), Toronto 1 / 1.
