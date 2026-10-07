@@ -124,10 +124,10 @@ If `<output dir>/<archive>-extracted` already exists, tell the user and ask whet
 
 Use the binary found under Environment. Pass no flags other than those shown below. The defaults are correct.
 
-**Windows.** The bundled `.exe` takes the output path as a second positional argument, so write straight into `<output dir>`:
+**Windows.** The bundled `.exe` writes the `.tgz` next to the input. It ignores any second argument, so don't pass an output path:
 
 ```bash
-"<decrypt-cms.exe>" "<archive dir>/<archive>.tgz.p7m" "<output dir>/<archive>.tgz"
+"<decrypt-cms.exe>" "<archive dir>/<archive>.tgz.p7m"
 ```
 
 The device-code sign-in blocks until the user completes it, so run this command with `run_in_background`. Read its output until the Microsoft URL and code appear, then relay both to the user. Tell them the process continues automatically once they sign in. Wait for the command to exit.
@@ -138,9 +138,9 @@ The device-code sign-in blocks until the user completes it, so run this command 
 cd "<archive dir>" && "<decrypt-cms>" "<archive>.tgz.p7m"
 ```
 
-If `<output dir>` is different from `<archive dir>`, move the `.tgz` there afterwards: `mv "<archive dir>/<archive>.tgz" "<output dir>/"`.
-
 **Both platforms:**
+
+- **Move to the output folder:** if `<output dir>` is different from `<archive dir>`, move the `.tgz` there once the decrypt exits: `mv "<archive dir>/<archive>.tgz" "<output dir>/"`.
 
 - **Auth or Vault failure:** show the error verbatim and stop. Do **not** try `-skip-vault`, `-key`, `-userVaultAddr`, or any other flag to get around it. Those flags change which credentials and environment are used, and that decision belongs to the user.
 - **Find the output:** list `<output dir>` afterwards and expect `<archive>.tgz` there. If nothing new appeared and the decrypted bytes went to stdout instead, re-run with stdout redirected to `"<output dir>/<archive>.tgz"`.
