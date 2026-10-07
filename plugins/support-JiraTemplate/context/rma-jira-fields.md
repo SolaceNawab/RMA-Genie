@@ -81,6 +81,7 @@ SolOS: <version from show version>
 Support level: <see rule below>
 [Platinum+] Field service work order: <Partner> #<WO>
 [High priority] Priority justification: <reason>
+Salesforce case: <case number>
 Related Support Jira: SOL-xxxxx
 
 **Parts to replace:**
