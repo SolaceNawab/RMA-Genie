@@ -1,65 +1,114 @@
 ---
 name: inventory
-description: List available (not crossed-off) serial numbers from the live Shipment Inventory Record spreadsheet. Use when the user asks what serials / units / appliances are in stock or available, which replacement units can ship, or to look up a serial number in the inventory record. Also the data source for RMA generation.
-argument-hint: "[filter, e.g. a model, sheet/location, or serial]"
+description: Look up serial numbers in the live Shipment Inventory Record (customer, Platinum / Platinum+ tier, MTCE eligibility, chassis, destination city, address), or list available (not crossed-off) serials. Use when the user gives a serial number to look up, asks what serials / units / appliances are in stock or available, or which replacement units can ship. Also the data source for RMA generation.
+argument-hint: "[serial number(s) to look up, or a filter such as a model or sheet]"
 allowed-tools: Bash, Read
 ---
 
 # Shipment inventory
 
 The inventory lives in `Shipment Inventory Record.xlsx` on the Operations
-SharePoint site. It is read from the user's **OneDrive-synced local copy**, which
-OneDrive keeps current — so every run reflects the live sheet. Never try to fetch
-the SharePoint URL; it needs a Solace login and returns 403.
+SharePoint site. The scripts read the OneDrive-synced local copy when there is
+one (OneDrive keeps it live). Otherwise they fetch a copy from SharePoint through
+the user's signed-in Excel and reuse it for 10 minutes. Never fetch the SharePoint
+URL any other way; it needs a Solace login and returns 403.
 
-A serial is **crossed off** (used / shipped) when its cell is formatted
-strikethrough. Everything else is available.
+Pick the mode from `$ARGUMENTS`:
+- **Serial lookup:** the arguments are one or more serial numbers (tokens of 7+
+  characters containing digits, e.g. `S009004123`, `3011-000038`).
+- **Listing:** anything else (no arguments, a model such as `3560`, a sheet or
+  location name), or the user asks what is available.
 
-## Run
+## Serial lookup (default when a serial is given)
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}"/scripts/inventory.sh lookup $ARGUMENTS \
+  --path '${user_config.inventory_path}' \
+  --url '${user_config.inventory_url}' \
+  --state-dir "${CLAUDE_PLUGIN_DATA}"
+```
+
+It takes a few seconds; there's no need to run it in the background. Add
+`-Refresh` only if the user says the sheet was just edited and the source is a
+SharePoint copy (`origin: sharepoint`).
+
+The output is JSON: `origin` (`synced` = live OneDrive copy, `sharepoint` = copy
+fetched at `as_of`, `path` = a file given explicitly), `as_of`, `results[]`,
+`not_found[]` and `warnings[]`. Each result already has `support_tier` and
+`mtce_eligible` computed:
+- `support_tier`: `Platinum+` if Premium Onsite Support is Yes; otherwise `Platinum`, including when it's blank.
+- `mtce_eligible`: true only when both "Can Support Team Provide MTCE on This Box?"
+  and "Is MTCE Contract Active?" are Yes.
+
+**Report only this**, one block per result, with nothing else added:
+
+```
+**<serial>**
+- **Customer:** <customer>
+- **Support tier:** <support_tier>
+- **MTCE eligible:** Yes | No (can provide: <mtce_can_provide>, contract active: <mtce_contract_active>)
+- **Chassis:** <chassis>
+- **Dest City:** <dest_city>
+- **Address:** <address>
+```
+
+Put one line above the blocks giving the source: "Live sheet (OneDrive sync, last
+modified <as_of>)" or "SharePoint copy fetched <as_of>". Show a blank field as
+`—`. Add a short note only for these exceptions:
+- the serial is in `not_found`;
+- the same serial matched several rows (show each, with its row number);
+- `crossed_off: true`, `serial_strike: partial`, or `hidden_row: true`.
+
+Don't mention the conditional-formatting warning, timings, sheet counts or other
+columns unless the user asks.
+
+## Listing
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}"/scripts/inventory.sh \
   --path '${user_config.inventory_path}' \
+  --url '${user_config.inventory_url}' \
   --state-dir "${CLAUDE_PLUGIN_DATA}" \
   -AvailableOnly
 ```
 
-- With no configured path the script searches the OneDrive / SharePoint sync
-  folders and caches what it finds in `${CLAUDE_PLUGIN_DATA}`.
-- Drop `-AvailableOnly` to include crossed-off rows (e.g. "was FAKE-0002 used?").
+This reads every row of every sheet and takes several minutes on the real
+workbook, so run it in the background and tell the user it is running.
+
+- Drop `-AvailableOnly` to include crossed-off rows.
 - `--serial-column "<header or column letter>"` if auto-detection picks the wrong column.
-- `-Sheet "<name>"` to read one worksheet only.
+- `-Sheet "<name>"` reads one worksheet only, which is faster.
 
-Output is JSON: `sheets[]` (per-sheet counts and the detected serial column),
-`warnings[]`, and `rows[]`, each with `sheet`, `row`, `serial`, `crossed_off`,
-`serial_strike` (`none` / `partial` / `full`), `struck_fields`, `hidden_row`, and
-`fields` (every column of that row keyed by header).
+Output is JSON: `origin`, `last_modified`, `sheets[]` (per-sheet counts and the
+detected serial column), `warnings[]`, and `rows[]`, each with `sheet`, `row`,
+`serial`, `crossed_off`, `serial_strike` (`none` / `partial` / `full`),
+`struck_fields`, `hidden_row`, and `fields` (every column, keyed by header).
 
-Exit codes: `0` ok, `3` file not found / unreadable, `4` no serial column found.
-
-## Report
-
-1. Open with the source file's `last_modified` time so the user knows how fresh it is.
+Report:
+1. Open with the source and its `last_modified` time.
 2. List available serials grouped by sheet, with the most useful identifying
-   columns from `fields` (model / part number / location, whatever the sheet has).
-   If `$ARGUMENTS` is given, filter rows by it (case-insensitive match on any field).
-3. Give the counts: available vs crossed off, per sheet.
-4. Call out anything ambiguous instead of silently deciding:
-   - `serial_strike: partial` — only some characters are struck; counted as
-     available, but ask the user to check it.
-   - Rows where other cells are struck (`struck_fields`) but the serial is not.
-   - `hidden_row: true`, hidden sheets (`state` ≠ `visible`), and any `warnings`.
+   columns from `fields`. If `$ARGUMENTS` is given, filter rows by it
+   (case-insensitive match on any field).
+3. Give the counts per sheet: available vs crossed off.
+4. Call out anything ambiguous: `serial_strike: partial`, rows where other cells
+   are struck but the serial is not, `hidden_row: true`, hidden sheets, and `warnings`.
 
 ## When it fails
 
-- **Exit 3 (not found):** the SharePoint library is not synced to this machine.
-  Tell the user to open the Operations site's document library in a browser, click
-  **Sync** (or **Add shortcut to My files**), wait for OneDrive to finish, and rerun.
-  If they know the local path, they can set it as the plugin's `inventory_path` option.
-- **Exit 4 (no serial column):** show the user the sheet's header row and rerun
-  with `--serial-column`.
-- If `last_modified` is old but the user says the sheet was just edited, OneDrive
-  may be paused or behind — have them check the OneDrive tray icon.
+Exit codes are the same for both modes: `0` ok, `3` file not found / unreadable,
+`4` required columns not found.
+
+- **Exit 3:** there is no synced copy, and the Excel fetch failed. The stderr
+  message says why. Usually Excel isn't signed in to the Solace account, or the
+  user has no access to the file. Ask them to open the file once in desktop Excel
+  and sign in if prompted, then rerun. Syncing the Operations "Ship Spreadsheet"
+  folder (**Sync**, or **Add shortcut to My files** on the folder, not the file)
+  avoids the fetch entirely.
+- **Exit 4:** show the user the message (it lists the sheets and the missing
+  headers). For listing, rerun with `--serial-column`.
+- If a synced copy's `as_of` / `last_modified` is old but the user says the sheet
+  was just edited, OneDrive may be paused or behind. Have them check the OneDrive
+  tray icon.
 
 Do not edit the spreadsheet. If a serial should be crossed off, tell the user
 which one; the shared workbook is edited by the Operations team.
