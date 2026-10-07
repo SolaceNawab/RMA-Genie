@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
   Look up one or more serial numbers in the Shipment Inventory Record and return
-  only the RMA facts: customer, support tier, MTCE eligibility, chassis, dest city
-  and address.
+  only the RMA facts: customer, support tier, MTCE eligibility, chassis, dest city,
+  address and who provides the hardware spare.
 
 .DESCRIPTION
   Built for speed. A compiled scanner (C#, cached as a DLL after the first run)
@@ -42,7 +42,11 @@ $FieldMap = [ordered]@{
   chassis                = 'Chassis'
   dest_city              = 'Dest City'
   address                = 'Address'
+  # Optional from here on: blank when a sheet lacks the column.
+  hw_spare_provided_by   = 'Hardware spare provided by'
 }
+
+$RequiredCount = 7   # the first 7 FieldMap entries must exist on a sheet
 
 $serials = @($Serial | ForEach-Object { $_ -split '[,\s]+' } | Where-Object { $_ } | ForEach-Object { $_.Trim() } | Select-Object -Unique)
 if (-not $serials.Count) { Fail 2 'no serial number given' }
@@ -82,7 +86,7 @@ namespace SupportRma {
     static List<string> sst; static Dictionary<int, sbyte[]> sstRuns;
     static bool[] xfStrike, xfDate; static bool date1904;
 
-    public static LookupResult Run(string path, string[] serials, string[] wanted) {
+    public static LookupResult Run(string path, string[] serials, string[] wanted, int required) {
       var want = new HashSet<string>(serials, StringComparer.OrdinalIgnoreCase);
       var res = new LookupResult();
       using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
@@ -109,7 +113,7 @@ namespace SupportRma {
           var entry = zip.GetEntry(part);
           if (entry == null) continue;
           string state = sh.GetAttribute("state"); if (state == "") state = "visible";
-          using (var s = entry.Open()) ScanSheet(s, sh.GetAttribute("name"), state, want, wanted, res);
+          using (var s = entry.Open()) ScanSheet(s, sh.GetAttribute("name"), state, want, wanted, required, res);
         }
       }
       sst = null; sstRuns = null;
@@ -286,7 +290,7 @@ namespace SupportRma {
 
     static string Text(Cell c) { string s; return Text(c, out s); }
 
-    static void ScanSheet(Stream s, string name, string state, HashSet<string> want, string[] wanted, LookupResult res) {
+    static void ScanSheet(Stream s, string name, string state, HashSet<string> want, string[] wanted, int required, LookupResult res) {
       int serialCol = 0, seenRows = 0; int[] wantedCols = null; string serialHeader = null;
       using (var r = XmlReader.Create(s, Settings())) {
         while (r.Read()) {
@@ -310,7 +314,7 @@ namespace SupportRma {
             var missing = new List<string>();
             for (int i = 0; i < wanted.Length; i++) {
               foreach (var kv in texts) if (string.Equals(kv.Value.Trim(), wanted[i], StringComparison.OrdinalIgnoreCase)) { wantedCols[i] = kv.Key; break; }
-              if (wantedCols[i] == 0) missing.Add(wanted[i]);
+              if (wantedCols[i] == 0 && i < required) missing.Add(wanted[i]);
             }
             if (missing.Count > 0) { res.Skipped.Add(name + " (missing: " + string.Join(", ", missing) + ")"); return; }
             serialCol = found; serialHeader = texts[found];
@@ -355,14 +359,14 @@ $t0 = Get-Date
 $src = Resolve-Inventory -Path $Path -Name $Name -StateDir $StateDir -Url $Url -MaxAgeMinutes $MaxAgeMinutes -Refresh:$Refresh
 $t1 = Get-Date
 try {
-  $res = [SupportRma.SerialScanner]::Run($src.Path, [string[]]$serials, [string[]]@($FieldMap.Values))
+  $res = [SupportRma.SerialScanner]::Run($src.Path, [string[]]$serials, [string[]]@($FieldMap.Values), $RequiredCount)
 } catch {
   Fail 3 "cannot read $($src.Path): $($_.Exception.InnerException.Message)$($_.Exception.Message)"
 }
 $t2 = Get-Date
 
 if (-not $res.SheetsSearched.Count) {
-  Fail 4 ("no sheet has all of the columns: " + (@($FieldMap.Values) -join ', ') + ". Skipped: " + ($res.Skipped -join '; '))
+  Fail 4 ("no sheet has all of the columns: " + (@($FieldMap.Values)[0..($RequiredCount - 1)] -join ', ') + ". Skipped: " + ($res.Skipped -join '; '))
 }
 
 $isYes = { param($v) $v -match '^\s*y(es)?\s*$' }
@@ -382,6 +386,7 @@ $results = foreach ($m in $res.Matches) {
     chassis                = $f.chassis
     dest_city              = $f.dest_city
     address                = $f.address
+    hw_spare_provided_by   = $f.hw_spare_provided_by
     crossed_off            = $m.SerialStrike -eq 'full'
     serial_strike          = $m.SerialStrike
     hidden_row             = $m.Hidden
