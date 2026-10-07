@@ -131,12 +131,20 @@ def sync_roots():
     return sorted(out)
 
 
+BLOCKED = []   # sync roots macOS privacy settings (TCC) wouldn't let us list
+
+
+def walk_error(err):
+    if isinstance(err, PermissionError) and err.filename not in BLOCKED:
+        BLOCKED.append(err.filename)
+
+
 def find_inventory(pattern):
     exact = pattern.replace("*", "").lower()
     best = None
     for root in sync_roots():
         hits = []
-        for dirpath, dirnames, filenames in os.walk(root):
+        for dirpath, dirnames, filenames in os.walk(root, onerror=walk_error):
             dirnames[:] = [d for d in dirnames if not d.startswith(".")]
             for f in filenames:
                 if f.startswith("~$") or not fnmatch.fnmatch(f.lower(), pattern.lower()):
@@ -193,6 +201,11 @@ def resolve_inventory(opts):
         if os.path.isfile(copy) and not opts["refresh"] and (time.time() - os.path.getmtime(copy)) / 60 < opts["max_age"]:
             return {"path": copy, "origin": "sharepoint", "as_of": os.path.getmtime(copy), "fetched": False}
 
+    if BLOCKED and sys.platform == "darwin":
+        fail(3, "macOS blocked access to %s (Operation not permitted), so the synced spreadsheet can't be read. "
+                "Give the app running Claude Code (e.g. Terminal, iTerm, Termius, IntelliJ) access in System Settings > "
+                "Privacy & Security > Full Disk Access (or Files and Folders), then quit and reopen that app."
+                % "; ".join(BLOCKED))
     fail(3, "no OneDrive-synced copy of '%s' was found (searched: %s). On macOS/Linux the file can't be "
             "fetched from SharePoint through Excel. Sync it instead: in the browser, open the Operations site's "
             "Shared Documents and choose 'Add shortcut to My files' on the 'Ship Spreadsheet' folder (OneDrive "
