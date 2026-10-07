@@ -97,23 +97,36 @@ this step the lookup fails with exit 3 and
 You should get the customer, tier, MTCE eligibility, chassis, destination city and
 address, with the source shown as "Live sheet (OneDrive sync …)".
 
-### 7. Gather-diagnostics on a Mac
+### 7. decrypt-cms on a Mac (to decrypt gather-diagnostics)
 
-`decrypt-cms`, which decrypts the customer's `.tgz.p7m`, is only available for Windows
-(bundled with support-gd-handler) and Linux (the RND shared load
-`/home/public/RND/loads/decrypt-cms/main/current/linux/amd64/`). The Linux build
-won't run on a Mac. So on a Mac:
+`decrypt-cms` decrypts the customer's `.tgz.p7m`. support-gd-handler bundles only the
+Windows `.exe`, and the dev servers have the Linux build, but the tool
+(**SolaceDev/decrypt-cms**, internal Go) builds natively for macOS. Build it once:
 
-- Decrypt and extract the bundle on a **dev server** (or a Windows machine), copy the
-  **extracted folder** to the Mac (e.g. `scp -r <you>@<dev-server>:<path>/gather-diagnostics_… ~/Downloads/`),
-  then run `/support-rma-jira:raise-rma <serial>`. It finds extracted bundles in the
-  current folder and `~/Downloads` and picks the one whose chassis serial matches.
-- Or run the whole `raise-rma` flow on the dev server, where filedrop download and
-  decryption work end to end.
+```
+brew install go
+gh repo clone SolaceDev/decrypt-cms ~/repos/decrypt-cms
+cd ~/repos/decrypt-cms && mkdir -p ~/bin && go build -trimpath -o ~/bin/decrypt-cms .
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc     # if ~/bin isn't on your PATH yet
+```
 
-If you use the filedrop fetch (support-gd-handler's `filedrop.py`) on a Mac, it needs
-Python `requests`. Homebrew Python blocks plain `pip install` (PEP 668), so install it
-for your user only:
+Open a new terminal and check with `decrypt-cms -h`. support-gd-handler's filedrop fetch,
+`/support-jira:draft-jira` and `/support-rma-jira:raise-rma` then find it on the `PATH`. To
+update it later, run `git pull` and the `go build` line again.
+
+How it decrypts: it signs in to **Vault** (default `-method jwt`; `oidc` and `github` also
+work), gets AWS credentials, and has **AWS KMS** decrypt the bundle's key. The private key
+never leaves KMS. Your Solace account needs the Vault access for this. If decryption is
+refused on the Mac, check whether it works for you on a dev server. If it doesn't work
+there either, it's an access issue rather than a Mac issue.
+
+Without a Mac build you can still decrypt and extract on a dev server, copy the
+**extracted folder** to the Mac (e.g. `scp -r <you>@<dev-server>:<path>/gather-diagnostics_… ~/Downloads/`),
+and run `/support-rma-jira:raise-rma <serial>`. It finds extracted bundles in the current
+folder and `~/Downloads` and picks the one whose chassis serial matches.
+
+The filedrop fetch (support-gd-handler's `filedrop.py`) also needs Python `requests`.
+Homebrew Python blocks plain `pip install` (PEP 668), so install it for your user only:
 
 ```
 python3 -m pip install --user --break-system-packages requests
@@ -127,6 +140,7 @@ python3 -m pip install --user --break-system-packages requests
 | `permission denied` running `inventory.sh` (exit 126) | Same: older support-rma. Update it. |
 | `macOS blocked access to … (Operation not permitted)` (exit 3) | Terminal app lacks Full Disk Access (step 5). Remember to quit and reopen it. |
 | `no OneDrive-synced copy … was found` (exit 3) | Sheet not synced yet, or OneDrive is still syncing or paused (step 4). |
-| `decrypt-cms binary not found` | Expected on a Mac. Decrypt on a dev server or Windows (step 7). |
+| `decrypt-cms binary not found` | Build it for macOS (step 7), and make sure `~/bin` is on your `PATH` in a new terminal. |
+| decrypt-cms runs but Vault / AWS access is refused | Account access, not the Mac: check whether it works for you on a dev server; request Vault access if not. |
 | `No module named 'requests'` | Install `requests` (step 7). |
 | Lookup works but the data looks old | Check the OneDrive menu-bar icon: syncing may be paused or behind. |

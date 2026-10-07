@@ -2,7 +2,7 @@
 
 Claude Code plugin that raises standardized **OPS RMA** Jira tickets for Solace hardware appliance replacements. It automates Step 3 ("Open an RMA in Jira") of the [Hardware Replacement Workflow](https://sol-jira.atlassian.net/wiki/spaces/SS/pages/3758332688/Hardware+Replacement+Workflow).
 
-**macOS:** see the repo README's [macOS setup](../../README.md#macos-setup). Decrypting gather-diagnostics isn't possible on a Mac, so decrypt on a dev server and copy the extracted folder over.
+**macOS:** see the repo README's [macOS setup](../../README.md#macos-setup). To decrypt gather-diagnostics on a Mac, build `decrypt-cms` natively (step 7 there).
 
 
 ## What it does
