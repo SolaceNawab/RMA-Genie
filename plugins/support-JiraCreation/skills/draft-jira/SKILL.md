@@ -1,6 +1,6 @@
 ---
 name: draft-jira
-description: Draft a Jira ticket for a hardware support case. Collects the device serial number and support plan tier (Platinum or Platinum+), then decrypts and extracts the customer's gather-diagnostics archive. Use when the user asks to draft, open, or file a Jira ticket for a support case, or to decrypt a gather-diagnostics bundle.
+description: Draft a Jira ticket for a hardware support case. Collects the device serial number, looks up its support plan tier (Platinum or Platinum+) in the Shipment Inventory Record, then decrypts and extracts the customer's gather-diagnostics archive. Use when the user asks to draft, open, or file a Jira ticket for a support case, or to decrypt a gather-diagnostics bundle.
 ---
 
 # draft-jira
@@ -35,7 +35,19 @@ Do not guess or invent a serial number. If the user doesn't know it, say the tic
 
 ## Step 2 — Support plan
 
-Ask with `AskUserQuestion` — exactly these two options, no others:
+Look the plan up in the Shipment Inventory Record with the support-rma plugin's serial lookup (the same one `/support-rma:inventory` uses). Find its script at `~/.claude/plugins/cache/coop-support-hack/support-rma/<version>/scripts/inventory.sh`, using the newest `<version>` directory present, and run it in the foreground:
+
+```bash
+"<inventory.sh>" lookup "<serial>" --state-dir "$HOME/.claude/plugins/data/support-rma-coop-support-hack"
+```
+
+It takes a few seconds. The output is JSON. Each entry in `results[]` has `support_tier` (`Platinum+` when Premium Onsite Support is Yes, otherwise `Platinum`), plus `customer`, `sheet` and `row`.
+
+- **One result, or several that all have the same `support_tier`:** use that tier. Don't ask. Tell the user: "Support plan from the inventory sheet: <tier> (<customer>, row <row>)."
+- **Several results with different tiers:** list each one (row, customer, tier, dest city), then ask the question below.
+- **Serial in `not_found`, script not found, or a non-zero exit:** say why in one line (show the stderr message on a non-zero exit), then ask the question below.
+
+Only ask when the lookup didn't settle it. Use `AskUserQuestion` with exactly these two options, no others:
 
 ```
 question: "Which support plan covers this device?"
@@ -125,7 +137,7 @@ Echo back:
 
 ```
 Serial number: <serial>
-Support plan:  <Platinum | Platinum+>
+Support plan:  <Platinum | Platinum+> (from inventory row <row> | chosen by user)
 Diagnostics:   <path to extracted directory>
 ```
 
