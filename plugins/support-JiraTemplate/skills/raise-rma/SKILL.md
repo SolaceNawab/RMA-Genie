@@ -111,7 +111,7 @@ For "Other" parts, find the part number per the part-number lookup guide in rma-
 
 ## Step 4: Evidence scan (delegated)
 
-The GD files can be several MB, so delegate the scan to a **general-purpose subagent** to keep this context clean. Subagents do not expand `${CLAUDE_PLUGIN_ROOT}`, so **pass absolute paths**. Use the expanded paths in this file's reference list. If they still show the literal `${CLAUDE_PLUGIN_ROOT}`, resolve it (`echo "$CLAUDE_PLUGIN_ROOT"`). If that is empty too, locate the plugin with `find ~/.claude/plugins -path '*support-rma-jira*/scripts/extract_gd.py'`.
+The GD files can be several MB, so delegate the scan to a **general-purpose subagent** to keep this context clean. Subagents do not expand `${CLAUDE_PLUGIN_ROOT}`, so **pass absolute paths**. Use the expanded paths in this file's reference list. If they still show the literal `${CLAUDE_PLUGIN_ROOT}`, resolve it (`echo "$CLAUDE_PLUGIN_ROOT"`). If that is empty too, locate the plugin with `find ~/.claude/plugins -path '*/scripts/extract_gd.py'`.
 
 Prompt the subagent with:
 - the absolute GD folder path,

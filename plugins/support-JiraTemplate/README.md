@@ -87,5 +87,5 @@ python3 scripts/extract_gd.py section   <gd-folder> "show hardware detail" "show
 - **Watchers have to be added by hand.** The Atlassian MCP has no add-watcher tool, so the skill resolves the names you give it and prints them for you to add.
 - **The PSU part number** doesn't appear in `show hardware detail`, so the skill asks you for it.
 - **`evidence-guide.md` is a draft.** Refine it as the team sees real cases.
-- **Phase 2:** automatic entitlement and tier lookup by serial. [`support-rma`](../support-rma)'s `/support-rma:inventory` already reads the Shipment Inventory Record (customer, tier, maintenance eligibility, address), so it's the natural thing to hook in here. The Platinum Plus Maintenance sheet (spare quantity) is still to do.
+- **Phase 2:** automatic entitlement and tier lookup by serial. [`support-rma`](../support-SupportPlans)'s `/support-rma:inventory` already reads the Shipment Inventory Record (customer, tier, maintenance eligibility, address), so it's the natural thing to hook in here. The Platinum Plus Maintenance sheet (spare quantity) is still to do.
 - **Later:** support-log-buddy findings, a post-install update mode (Step 6.2), and pre-filling details from Salesforce through support-ticket-lookup.
