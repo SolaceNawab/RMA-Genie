@@ -16,6 +16,15 @@
         "name": "Nawab Amedi"
       },
       "category": "support"
+    },
+    {
+      "name": "support-jira",
+      "description": "Collect a support case's serial number and support plan, then decrypt and extract the customer's gather-diagnostics bundle; foundation for automated Jira ticket drafting.",
+      "source": "./plugins/support-jira",
+      "author": {
+        "name": "Anthony Farkouh"
+      },
+      "category": "support"
     }
   ]
 }
