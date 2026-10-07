@@ -16,7 +16,7 @@ Before Step 1, detect the platform with `uname -s` and locate `decrypt-cms`. If 
 | `MINGW*` / `MSYS*` / `CYGWIN*` | Windows (Git Bash) | `decrypt-cms.exe` bundled with the support-gd-handler plugin: `~/.claude/plugins/cache/support-marketplace/support-gd-handler/<version>/scripts/decrypt-cms.exe`. Use the newest `<version>` directory present. |
 | `Linux` / `Darwin` | Dev server or Unix workstation | 1. `decrypt-cms` on `$PATH` (`command -v decrypt-cms`). 2. The RND shared load at `/home/public/RND/loads/decrypt-cms/main/current/linux/amd64/decrypt-cms`. Use `current`, not a pinned version. If `current` is missing, use the newest numbered directory present. |
 
-Tell the user which platform and binary you're using before Step 4.
+Tell the user which platform and binary you're using before Step 5.
 
 Each platform authenticates differently:
 
@@ -92,14 +92,42 @@ osascript -e 'POSIX path of (choose file with prompt "Select the gather-diagnost
 
 **Quote every path** in shell commands — these filenames often contain spaces and timestamps.
 
-## Step 4 — Decrypt
+## Step 4 — Output folder
+
+Ask where the decrypted bundle should go. The default is the archive's own directory.
+
+If the platform has a native folder picker, open it, starting in the archive's directory. Say "Opening a folder picker — choose where to put the decrypted gather-diagnostics" first. As in Step 3, run it in the foreground with `timeout: 600000`. It prints the chosen folder, or nothing if the user cancels.
+
+**Windows.**
+
+```bash
+powershell.exe -NoProfile -STA -Command 'Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.Description = "Choose where to put the decrypted gather-diagnostics"; $d.ShowNewFolderButton = $true; $d.SelectedPath = "<archive dir in C:\ form>"; $o = New-Object System.Windows.Forms.Form -Property @{TopMost = $true}; if ($d.ShowDialog($o) -eq "OK") { $d.SelectedPath }'
+```
+
+**macOS.**
+
+```bash
+osascript -e 'POSIX path of (choose folder with prompt "Choose where to put the decrypted gather-diagnostics" default location POSIX file "<archive dir>")'
+```
+
+**Linux.** Same `$DISPLAY` / `$WAYLAND_DISPLAY` rule as Step 3. Try `zenity --file-selection --directory --title="Choose where to put the decrypted gather-diagnostics" --filename="<archive dir>/"` first, then `kdialog --getexistingdirectory "<archive dir>"`.
+
+**Fallback.** If there is no picker or the picker command fails, ask in plain text:
+
+> Where should the decrypted gather-diagnostics go? (Press enter for `<archive dir>`.)
+
+If the user cancels the picker or gives an empty answer, use the archive's directory and say so. If the folder doesn't exist, ask before creating it. Call the result `<output dir>`.
+
+If `<output dir>/<archive>-extracted` already exists, tell the user and ask whether to extract over it or pick another folder.
+
+## Step 5 — Decrypt
 
 Use the binary found under Environment. Pass no flags other than those shown below. The defaults are correct.
 
-**Windows.** The bundled `.exe` takes the output path as a second positional argument:
+**Windows.** The bundled `.exe` takes the output path as a second positional argument, so write straight into `<output dir>`:
 
 ```bash
-"<decrypt-cms.exe>" "<archive>.tgz.p7m" "<archive>.tgz"
+"<decrypt-cms.exe>" "<archive dir>/<archive>.tgz.p7m" "<output dir>/<archive>.tgz"
 ```
 
 The device-code sign-in blocks until the user completes it, so run this command with `run_in_background`. Read its output until the Microsoft URL and code appear, then relay both to the user. Tell them the process continues automatically once they sign in. Wait for the command to exit.
@@ -110,19 +138,21 @@ The device-code sign-in blocks until the user completes it, so run this command 
 cd "<archive dir>" && "<decrypt-cms>" "<archive>.tgz.p7m"
 ```
 
+If `<output dir>` is different from `<archive dir>`, move the `.tgz` there afterwards: `mv "<archive dir>/<archive>.tgz" "<output dir>/"`.
+
 **Both platforms:**
 
 - **Auth or Vault failure:** show the error verbatim and stop. Do **not** try `-skip-vault`, `-key`, `-userVaultAddr`, or any other flag to get around it. Those flags change which credentials and environment are used, and that decision belongs to the user.
-- **Find the output:** list the directory afterwards. Expect a `.tgz` next to the original. If nothing new appeared and the decrypted bytes went to stdout instead, re-run with stdout redirected to `"<archive>.tgz"`.
+- **Find the output:** list `<output dir>` afterwards and expect `<archive>.tgz` there. If nothing new appeared and the decrypted bytes went to stdout instead, re-run with stdout redirected to `"<output dir>/<archive>.tgz"`.
 - **Keep the original:** leave the `.p7m` in place.
 
-## Step 5 — Extract
+## Step 6 — Extract
 
-Unpack into its own directory so the bundle doesn't spill into the working directory:
+Unpack into its own directory inside `<output dir>` so the bundle doesn't spill into it:
 
 ```bash
-mkdir -p "<archive>-extracted"
-tar -xzf "<archive>.tgz" -C "<archive>-extracted"
+mkdir -p "<output dir>/<archive>-extracted"
+tar -xzf "<output dir>/<archive>.tgz" -C "<output dir>/<archive>-extracted"
 ```
 
 On Windows, add `--force-local`. Without it, GNU tar reads `C:\...` as a remote `host:path` and fails. You can also convert paths to `/c/...` form first.
@@ -131,7 +161,7 @@ On Windows, tar may also fail to create symlinks inside the bundle and exit 2 (e
 
 Then show the user the top-level layout of what came out.
 
-## Step 6 — Confirm
+## Step 7 — Confirm
 
 Echo back:
 

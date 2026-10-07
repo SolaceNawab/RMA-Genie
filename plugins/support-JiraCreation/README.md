@@ -9,7 +9,7 @@ are ready.
 
 | | |
 |---|---|
-| `/support-jira:draft-jira` | serial number → support plan (looked up) → pick archive → decrypt → extract |
+| `/support-jira:draft-jira` | serial number → support plan (looked up) → pick archive → pick output folder → decrypt → extract |
 | "decrypt this gather-diagnostics bundle" | the skill also triggers on plain requests |
 
 The skill:
@@ -19,9 +19,11 @@ The skill:
    sheet, matches rows with different tiers, or the lookup fails.
 3. Opens a native file picker to choose the `.tgz.p7m` archive, or asks for
    the path in text if no picker is available.
-4. Decrypts the archive with `decrypt-cms`.
-5. Extracts it into `<archive>-extracted/` next to the original.
-6. Echoes back the serial, plan, and extracted path.
+4. Opens a native folder picker to choose where the decrypted bundle goes
+   (defaults to the archive's folder), or asks in text if no picker is available.
+5. Decrypts the archive with `decrypt-cms`.
+6. Extracts it into `<archive>-extracted/` inside the chosen folder.
+7. Echoes back the serial, plan, and extracted path.
 
 ## Platform support
 
@@ -34,7 +36,7 @@ The skill detects the platform with `uname -s` and picks the decrypt tool to mat
 
 If no binary is found, the skill lists where it looked and stops.
 
-File pickers: Windows Forms dialog (PowerShell), `osascript` on macOS, and
+File and folder pickers: Windows Forms dialog (PowerShell), `osascript` on macOS, and
 `zenity` / `kdialog` on Linux desktops.
 
 ## Requirements
