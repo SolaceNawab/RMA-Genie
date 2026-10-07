@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only extractor for Solace gather-diagnostics (GD) bundles, used by the
-raise-rma skill.
+RMA Genie skill (/support-rma-genie:raise).
 
 Subcommands (all output goes to stdout; this script never writes files):
 

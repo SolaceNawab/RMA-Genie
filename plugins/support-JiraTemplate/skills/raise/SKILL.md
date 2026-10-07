@@ -1,5 +1,5 @@
 ---
-name: raise-rma
+name: raise
 description: "Raises Operations (OPS) RMA Jira tickets for Solace hardware appliance replacements (PSU, ADB, NAB, SFP, HBA, disk, fan, or full appliance) following the Hardware Replacement Workflow. Asks for the chassis serial first and looks up the support tier, customer and shipping address in the Shipment Inventory Record (via support-rma), finds or decrypts the gather-diagnostics, runs a fast scripted evidence scan, applies the Platinum / Platinum+ / exception Summary conventions, drafts the Description for user review, checks for duplicate RMAs, then creates the ticket via the Atlassian MCP (or produces paste-ready text). Use when a support case needs a hardware replacement, an RMA, a part shipment from HQ, or a Flash/Maintech partner backfill ticket."
 argument-hint: "[serial | extracted-GD-folder]"
 ---
