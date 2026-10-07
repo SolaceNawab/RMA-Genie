@@ -1,7 +1,7 @@
 {
   "name": "support-rma",
   "displayName": "Support RMA",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read the live Shipment Inventory Record (OneDrive/SharePoint sync) to list available replacement serial numbers; foundation for automated RMA generation.",
   "author": {
     "name": "Nawab Amedi"
