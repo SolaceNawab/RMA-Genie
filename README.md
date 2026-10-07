@@ -13,5 +13,5 @@ This repo is a Claude Code plugin marketplace.
 
 | Plugin | What it does |
 |---|---|
-| [support-rma](plugins/support-rma) | `/support-rma:inventory`: available serial numbers from the live Shipment Inventory Record (RMA generation to follow) |
-| [support-jira](plugins/support-jira) | `/support-jira:draft-jira`: collect serial number and support plan, then decrypt and extract the gather-diagnostics bundle (Jira drafting to follow) |
+| [support-rma](plugins/support-SupportPlans) | `/support-rma:inventory`: available serial numbers from the live Shipment Inventory Record (RMA generation to follow) |
+| [support-jira](plugins/support-JiraCreation) | `/support-jira:draft-jira`: collect serial number and support plan, then decrypt and extract the gather-diagnostics bundle (Jira drafting to follow) |
