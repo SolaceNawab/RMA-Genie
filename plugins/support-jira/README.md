@@ -41,6 +41,10 @@ File pickers: Windows Forms dialog (PowerShell), `osascript` on macOS, and
   It ships `decrypt-cms.exe`.
 - **Linux:** the RND shared loads mounted at `/home/public`, or `decrypt-cms` on `$PATH`.
 - A Solace Microsoft account for the decrypt sign-in.
+- The **atlassian** plugin (`/plugin install atlassian@claude-plugins-official`)
+  for Jira access. The repo's `.claude/settings.json` enables it, so Claude Code
+  offers to install it when you open the repo. Run `/mcp` once to sign in to
+  `sol-jira.atlassian.net`.
 
 ## Known quirks
 
