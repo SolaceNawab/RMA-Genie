@@ -9,9 +9,15 @@ allowed-tools: Bash, Read
 
 The inventory lives in `Shipment Inventory Record.xlsx` on the Operations
 SharePoint site. The scripts read the OneDrive-synced local copy when there is
-one (OneDrive keeps it live). Otherwise they fetch a copy from SharePoint through
-the user's signed-in Excel and reuse it for 10 minutes. Never fetch the SharePoint
-URL any other way; it needs a Solace login and returns 403.
+one (OneDrive keeps it live). Otherwise, **on Windows only**, they fetch a copy
+from SharePoint through the user's signed-in Excel and reuse it for 10 minutes.
+Never fetch the SharePoint URL any other way; it needs a Solace login and returns 403.
+
+`inventory.sh` works on Windows, macOS and Linux. On Windows it runs the
+PowerShell scripts; elsewhere it runs `inventory.py` (needs Python 3). The output
+is the same on every platform. On macOS/Linux there is no Excel fetch, so the file
+must be OneDrive-synced (OneDrive for Mac puts it under `~/Library/CloudStorage/OneDrive-*`)
+or set through `inventory_path`.
 
 Pick the mode from `$ARGUMENTS`:
 - **Serial lookup:** the arguments are one or more serial numbers (tokens of 7+
@@ -99,17 +105,22 @@ Report:
 Exit codes are the same for both modes: `0` ok, `3` file not found / unreadable,
 `4` required columns not found.
 
-- **Exit 3:** there is no synced copy, and the Excel fetch failed. The stderr
-  message says why. Usually Excel isn't signed in to the Solace account, or the
-  user has no access to the file. Ask them to open the file once in desktop Excel
-  and sign in if prompted, then rerun. Syncing the Operations "Ship Spreadsheet"
-  folder (**Sync**, or **Add shortcut to My files** on the folder, not the file)
-  avoids the fetch entirely.
+- **Exit 3:** there is no synced copy, and (on Windows) the Excel fetch failed.
+  The stderr message says why.
+  - Windows: usually Excel isn't signed in to the Solace account, or the user has
+    no access to the file. Ask them to open the file once in desktop Excel and sign
+    in if prompted, then rerun.
+  - macOS / Linux: there's no Excel fetch, so the file must be synced (below), or
+    downloaded and set as the plugin's `inventory_path`.
+  - On every platform, syncing the Operations "Ship Spreadsheet" folder (**Sync**,
+    or **Add shortcut to My files** on the folder, not the file) avoids the fetch
+    entirely. On a Mac, OneDrive must be signed in to the Solace account for the
+    shortcut to appear under `~/Library/CloudStorage/OneDrive-*`.
 - **Exit 4:** show the user the message (it lists the sheets and the missing
   headers). For listing, rerun with `--serial-column`.
 - If a synced copy's `as_of` / `last_modified` is old but the user says the sheet
   was just edited, OneDrive may be paused or behind. Have them check the OneDrive
-  tray icon.
+  icon (system tray on Windows, menu bar on a Mac).
 
 Do not edit the spreadsheet. If a serial should be crossed off, tell the user
 which one; the shared workbook is edited by the Operations team.

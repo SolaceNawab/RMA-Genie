@@ -62,7 +62,7 @@ Find the newest installed copy of the script and run it in the foreground (it ta
 
 ```bash
 INV=$(ls -d ~/.claude/plugins/cache/coop-support-hack/support-rma/*/scripts/inventory.sh 2>/dev/null | sort -V | tail -1)
-"$INV" lookup "<serial>" --state-dir "$HOME/.claude/plugins/data/support-rma-coop-support-hack"
+bash "$INV" lookup "<serial>" --state-dir "$HOME/.claude/plugins/data/support-rma-coop-support-hack"
 ```
 
 The output is JSON. Each `results[]` entry has `customer`, `support_tier` (`Platinum+` when Premium Onsite Support is Yes, otherwise `Platinum`), `mtce_eligible`, `mtce_can_provide`, `mtce_contract_active`, `chassis`, `dest_city`, `address` (usually ends with `Attn: <name>, <phone>`), `hw_spare_provided_by`, `sheet` and `row`. Keep these values in the conversation only (rule 1). Don't save the JSON.
