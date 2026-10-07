@@ -30,8 +30,14 @@ param(
   [switch]$AvailableOnly,
   [ValidateSet('json', 'table')]
   [string]$Format = 'json',
-  # Directory to cache the discovered spreadsheet path in (pass $CLAUDE_PLUGIN_DATA).
-  [string]$StateDir
+  # Directory to cache the discovered spreadsheet path / SharePoint copy in (pass $CLAUDE_PLUGIN_DATA).
+  [string]$StateDir,
+  # SharePoint URL to fetch through Excel when no synced copy exists.
+  [string]$Url,
+  # Reuse a SharePoint copy fetched less than this many minutes ago.
+  [double]$MaxAgeMinutes = 10,
+  # Always fetch a fresh SharePoint copy.
+  [switch]$Refresh
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,53 +46,12 @@ Add-Type -AssemblyName System.IO.Compression
 
 $RelNs = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 
-function Fail([int]$code, [string]$msg) {
-  [Console]::Error.WriteLine("read_inventory: $msg")
-  exit $code
-}
+. (Join-Path $PSScriptRoot 'inventory_source.ps1')
 
 # --- locate the spreadsheet -------------------------------------------------
 
-function Get-SyncRoots {
-  $roots = @()
-  $roots += Get-ChildItem 'HKCU:\Software\SyncEngines\Providers\OneDrive' -ErrorAction SilentlyContinue |
-    ForEach-Object { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).MountPoint }
-  # SharePoint libraries synced with "Sync" land in %USERPROFILE%\<Org Name>\<Site> - <Library>
-  $roots += Get-ChildItem $env:USERPROFILE -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -like 'OneDrive*' -or $_.Name -like 'Solace Corporation*' -or $_.Name -like 'Solace Systems*' } |
-    ForEach-Object { $_.FullName }
-  $roots | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Sort-Object -Unique
-}
-
-function Find-Inventory {
-  foreach ($root in Get-SyncRoots) {
-    $hit = Get-ChildItem -LiteralPath $root -Recurse -File -Filter $Name -ErrorAction SilentlyContinue |
-      Where-Object { $_.Name -notlike '~$*' } |
-      Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($hit) { return $hit.FullName }
-  }
-  $null
-}
-
-$cacheFile = if ($StateDir) { Join-Path $StateDir 'inventory_path.txt' }
-
-if (-not $Path -and $cacheFile -and (Test-Path -LiteralPath $cacheFile)) {
-  $cached = (Get-Content -LiteralPath $cacheFile -Raw).Trim()
-  if ($cached -and (Test-Path -LiteralPath $cached)) { $Path = $cached }
-}
-if (-not $Path) {
-  $Path = Find-Inventory
-  if (-not $Path) {
-    Fail 3 ("no file matching '$Name' under any OneDrive/SharePoint sync folder (" +
-      ((Get-SyncRoots) -join '; ') + "). Sync the SharePoint library or pass -Path.")
-  }
-}
-if (-not (Test-Path -LiteralPath $Path)) { Fail 3 "file not found: $Path" }
-$Path = (Resolve-Path -LiteralPath $Path).ProviderPath
-if ($cacheFile) {
-  New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
-  Set-Content -LiteralPath $cacheFile -Value $Path -Encoding UTF8
-}
+$src = Resolve-Inventory -Path $Path -Name $Name -StateDir $StateDir -Url $Url -MaxAgeMinutes $MaxAgeMinutes -Refresh:$Refresh
+$Path = $src.Path
 
 # --- xlsx helpers -------------------------------------------------------------
 
@@ -318,7 +283,7 @@ if (-not ($sheetsOut | Where-Object { $_.serial_column })) {
 
 $file = Get-Item -LiteralPath $Path
 if ($Format -eq 'table') {
-  "Source:   $Path"
+  "Source:   $Path ($($src.Origin))"
   "Modified: $($file.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))"
   foreach ($s in $sheetsOut) { "Sheet '$($s.name)': $($s.available) available, $($s.crossed_off) crossed off" }
   $warnings | ForEach-Object { "Warning:  $_" }
@@ -326,6 +291,7 @@ if ($Format -eq 'table') {
 } else {
   [ordered]@{
     source        = $Path
+    origin        = $src.Origin             # path | synced | sharepoint (a copy fetched at last_modified)
     last_modified = $file.LastWriteTime.ToString('o')
     read_at       = (Get-Date).ToString('o')
     sheets        = $sheetsOut
