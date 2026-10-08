@@ -16,7 +16,7 @@ This repo is a Claude Code plugin marketplace.
 |---|---|
 | [support-rma](plugins/support-SupportPlans) | `/support-rma:inventory`: serial lookup / available serials from the live Shipment Inventory Record. **Being folded into RMA Genie** (`/support-rma-genie:inventory`); will be removed once that's confirmed. |
 | [support-jira](plugins/support-JiraCreation) | `/support-jira:draft-jira`: collect serial number and support plan, then decrypt and extract the gather-diagnostics bundle (Jira drafting to follow) |
-| [support-rma-genie](plugins/support-JiraTemplate) (RMA Genie) | `/support-rma-genie:raise` and `/support-rma-genie:inventory`: look up the serial in the Shipment Inventory Record (built in), then build the OPS RMA Jira from an extracted gather-diagnostics bundle (Summary/Description per the Hardware Replacement Workflow), preview for edits, then create it via the Atlassian MCP |
+| [support-rma-genie](plugins/support-RMA-Genie) (RMA Genie) | `/support-rma-genie:raise` and `/support-rma-genie:inventory`: look up the serial in the Shipment Inventory Record (built in), then build the OPS RMA Jira from an extracted gather-diagnostics bundle (Summary/Description per the Hardware Replacement Workflow), preview for edits, then create it via the Atlassian MCP |
 
 > **Renamed:** the RMA plugin was `support-rma-jira` (`/support-rma-jira:raise-rma`). It's now
 > **RMA Genie**: plugin `support-rma-genie`, command **`/support-rma-genie:raise`**. If you

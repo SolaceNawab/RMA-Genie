@@ -69,7 +69,7 @@ Full field rules are in [`context/rma-jira-fields.md`](context/rma-jira-fields.m
 ## Layout
 
 ```
-support-rma-genie/   (folder: plugins/support-JiraTemplate)
+support-rma-genie/   (folder: plugins/support-RMA-Genie)
 ├── .claude-plugin/plugin.json
 ├── context/
 │   ├── rma-jira-fields.md     # Summary/Description/field rules (from the Confluence runbook)
