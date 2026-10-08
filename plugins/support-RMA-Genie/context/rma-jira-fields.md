@@ -56,6 +56,7 @@ Rules:
 - **Full appliance:** Part# = the chassis product # (e.g. `CHS-3560AC-05-A`).
 - **Customer** = the short business name the user supplies (e.g. `ACME`), not the legal name.
 - **Partner** = `Flash`, `Maintech` or `Fujitsu`; **Location** = the depot city/country (e.g. `Singapore`).
+- **Order#** = the partner's order (work order) number, for **Flash and Maintech** only. RMA Genie asks for it as soon as the Platinum Plus Maintenance lookup identifies the partner. If it isn't raised yet, write `Order# TBD` and point it out in the preview. **Fujitsu:** leave out the `Order#` part (`… via Fujitsu <Location>`) unless the user gives one.
 - **Platinum+ only, Platinum Plus Maintenance sheet** (`PlatinumPlusMaintenance.xlsx`): per part `Support By` (FLASH / MAINTECH), `Response Time` (4H = Yes, 4H PART ONLY / HYBRID = Hybrid, BEST EFFORT / SHIPS NBD = In-Country Local Spares), `Bin` (partner + depot, e.g. `FLASH HEATHROW`, `MAIN SINGAPORE`), `Spare Qty` (0 / `NO SPARE` = Nuance (ii)), `Solace Part #` (orderable part, e.g. `PKG-3560-HPTRGM4-8X10GE` for a full appliance), `Spare Serial` (assigned spare unit). This takes precedence over the inventory sheet's partner and sub-level when present.
 - **From the inventory sheet:** `Hardware spare provided by` holds partner + depot, often truncated: `Main Charlotte` = Maintech Charlotte, `Flash Manchest` = Flash Manchester, `Flash Greensbor` = Flash Greensboro. `Main…` always means **Maintech**.
 
@@ -120,7 +121,7 @@ Per-condition rules:
 | Shipping address | Always its own fenced code block, four lines: the literal `Shipping address`, the company name as written on the address (e.g. `Barclays PLC`, not the Summary short name), the street / city / postcode on one line, then `<contact name> Contact Number <phone>` (e.g. `DCOPS Contact Number 02031344800`). From the inventory `address`: the first comma-separated part is the company, the rest up to `Attn:` is the street line, and the `Attn:` part gives the contact name and phone. With several phone numbers, keep them on the one line separated by ` / `. |
 | Data center address | Only when it differs from the shipping address. Same code-block layout, headed `Data center address`, without the contact line. |
 | Support level line | `Platinum` / `Platinum+ (Yes)` / `Platinum+ (Hybrid)` / `Platinum+ (In-Country Local Spares)` / `Platinum+ exception: shipped from HQ (part not stocked at partner depot)` / `Platinum+ exception: shipped from HQ (partner out of stock; please backfill <Partner> <Location> depot)` |
-| Work order line | Platinum+ only (including Nuances where a WO exists). |
+| Work order line | Platinum+ only (including Nuances where a WO exists). Uses the same partner order # as the Summary (`Flash #2491`). |
 | Priority justification | Only when Priority = High. |
 | show hardware detail | Always. If no GD is available, list the chassis serial (and what the user pasted) and say "GD not available". |
 | show product-key | Always. |
