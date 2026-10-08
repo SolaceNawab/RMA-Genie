@@ -42,7 +42,7 @@ The output is JSON: `origin` (`synced` = live OneDrive copy, `sharepoint` = copy
 fetched at `as_of`, `path` = a file given explicitly), `as_of`, `results[]`,
 `not_found[]` and `warnings[]`. Each result already has `support_tier` and
 `mtce_eligible` computed:
-- `support_tier`: `Platinum+` if Premium Onsite Support is Yes; otherwise `Platinum`, including when it's blank.
+- `support_tier`: `Platinum+` when Premium Onsite Support is Yes, Hybrid or In-Country Local Spares (any non-blank value other than "no"); `Platinum` when it's blank or "no". `premium_onsite_support` holds the raw value, which is the Platinum+ sub-level.
 - `mtce_eligible`: true only when both "Can Support Team Provide MTCE on This Box?"
   and "Is MTCE Contract Active?" are Yes.
 
