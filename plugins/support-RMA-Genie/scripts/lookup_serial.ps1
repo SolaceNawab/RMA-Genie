@@ -370,6 +370,9 @@ if (-not $res.SheetsSearched.Count) {
 }
 
 $isYes = { param($v) $v -match '^\s*y(es)?\s*$' }
+# Premium Onsite Support: Yes / Hybrid / In-Country Local Spares are all Rapid Hardware Repair
+# (Platinum+) per the Hardware Replacement Workflow. Blank or an explicit "no" means Platinum.
+$notPremium = { param($v) "$v" -match '^\s*(no?|none|n/?a|-+|0|false)?\s*$' }
 $keys = @($FieldMap.Keys)
 $results = foreach ($m in $res.Matches) {
   $f = @{}; for ($i = 0; $i -lt $keys.Count; $i++) { $f[$keys[$i]] = $m.Values[$i] }
@@ -378,7 +381,7 @@ $results = foreach ($m in $res.Matches) {
     sheet                  = $m.Sheet
     row                    = $m.Row
     customer               = $f.customer
-    support_tier           = $(if (& $isYes $f.premium_onsite_support) { 'Platinum+' } else { 'Platinum' })
+    support_tier           = $(if (& $notPremium $f.premium_onsite_support) { 'Platinum' } else { 'Platinum+' })
     premium_onsite_support = $f.premium_onsite_support
     mtce_eligible          = (& $isYes $f.mtce_can_provide) -and (& $isYes $f.mtce_contract_active)
     mtce_can_provide       = $f.mtce_can_provide

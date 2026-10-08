@@ -56,6 +56,7 @@ Rules:
 - **Full appliance:** Part# = the chassis product # (e.g. `CHS-3560AC-05-A`).
 - **Customer** = the short business name the user supplies (e.g. `ACME`), not the legal name.
 - **Partner** = `Flash`, `Maintech` or `Fujitsu`; **Location** = the depot city/country (e.g. `Singapore`).
+- **From the inventory sheet:** `Hardware spare provided by` holds partner + depot, often truncated: `Main Charlotte` = Maintech Charlotte, `Flash Manchest` = Flash Manchester, `Flash Greensbor` = Flash Greensboro. `Main…` always means **Maintech**.
 
 Examples (synthetic):
 - `RMA: Replace CHS-3560AC-05-A S009000001 for ACME in Singapore`
@@ -162,7 +163,7 @@ Where each part number lives (from `extract_gd.py inventory` / `show hardware de
 | HBA (Host Bus Adapter) | The HBA slot block → `Product #:` | `Serial #:`; also record the WWNs (customer must be told the WWNs before an HBA swap) |
 | SFP | `SFP (Port N) Details:` → `Part Number :` inside the blade block. Note: the vendor part number (e.g. `AFBR-709SMZ`) may differ from the Solace orderable part (e.g. `SFPP-PC02`): confirm with the user. | `Serial #` in the SFP block |
 | Disk / SSD | `Disk N:` → `Device Model:` (vendor model). Confirm the Solace orderable part with the user. | `Serial #:` |
-| PSU (power module) | **Unknown: not shown in show hardware detail.** Ask the user. (Open item: find the authoritative source.) | Not in GD; use the module number (`Power module N`) |
+| PSU (power module) | Not shown in show hardware detail. **3560 AC PSU: `CHS-PWRAC0-02-A`** (from a real Maintech RMA, OPS-4741). For other platforms, ask the user and add the number here. | Not in GD; use the module number (`Power module N`) |
 | Fan | Not in show hardware detail: ask the user. | Ask |
 
 ## 6. Glossary

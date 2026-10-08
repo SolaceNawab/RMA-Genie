@@ -1,7 +1,7 @@
 {
   "name": "support-rma-genie",
   "displayName": "RMA Genie",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "RMA Genie: look up serials in the live Shipment Inventory Record and raise standardized OPS RMA Jira tickets for Solace appliance hardware replacements from gather-diagnostics.",
   "author": {
     "name": "Jamil Wansa"

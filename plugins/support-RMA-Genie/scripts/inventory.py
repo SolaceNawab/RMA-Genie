@@ -40,6 +40,9 @@ M = "{%s}" % MAIN
 DEFAULT_NAME = "Shipment Inventory Record*.xlsx"
 SERIAL_HEADER = re.compile(r"(?i)serial|^\s*s\s*/?\s*n\s*[#.:]?\s*$|^\s*sn\b")
 YES = re.compile(r"(?i)^\s*y(es)?\s*$")
+# Premium Onsite Support: Yes / Hybrid / In-Country Local Spares are all Rapid Hardware Repair
+# (Platinum+) per the Hardware Replacement Workflow. Blank or an explicit "no" means Platinum.
+NOT_PREMIUM = re.compile(r"(?i)^\s*(no?|none|n/?a|-+|0|false)?\s*$")
 
 # Output key -> sheet header (matched trimmed, case-insensitive). Same as lookup_serial.ps1.
 FIELD_MAP = [
@@ -460,7 +463,7 @@ def run_lookup(opts):
             "sheet": m["sheet"],
             "row": m["row"],
             "customer": f["customer"],
-            "support_tier": "Platinum+" if YES.match(f["premium_onsite_support"]) else "Platinum",
+            "support_tier": "Platinum" if NOT_PREMIUM.match(f["premium_onsite_support"]) else "Platinum+",
             "premium_onsite_support": f["premium_onsite_support"],
             "mtce_eligible": bool(YES.match(f["mtce_can_provide"]) and YES.match(f["mtce_contract_active"])),
             "mtce_can_provide": f["mtce_can_provide"],

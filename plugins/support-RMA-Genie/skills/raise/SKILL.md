@@ -66,12 +66,12 @@ Keep this in chat, one line per step, ticking as you go:
 2. **Read** `rma-jira-fields.md`.
 3. **Atlassian MCP:** find the server that exposes `createJiraIssue` / `searchJiraIssuesUsingJql` / `lookupJiraAccountId` / `createIssueLink` (either `mcp__atlassian__*` or `mcp__claude_ai_Atlassian__*`). Call `searchJiraIssuesUsingJql` (cloudId `f76135b4-3004-44fe-a1bc-bd189b6e79f3`) with `project = OPS AND issuetype = RMA AND text ~ "<serial>" ORDER BY created DESC`, fields `summary,status,created`, maxResults 10. That call is both the access check and the duplicate check. No MCP or an auth error means **DRAFT MODE**: say so in one line. Also use DRAFT MODE whenever the user says not to create the ticket ("just show me the output").
 
-**Using the inventory result.** The output is JSON. Each `results[]` entry has `customer`, `support_tier` (`Platinum+` when Premium Onsite Support is Yes), `mtce_eligible`, `mtce_can_provide`, `mtce_contract_active`, `chassis`, `dest_city`, `address` (usually ends with `Attn: <name>, <phone>`), `hw_spare_provided_by`, `sheet` and `row`. Keep it in the conversation only (rule 1). It's the only lookup for this serial, so don't re-run it later.
+**Using the inventory result.** The output is JSON. Each `results[]` entry has `customer`, `support_tier` (`Platinum+` when Premium Onsite Support is Yes / Hybrid / In-Country Local Spares; the raw value is in `premium_onsite_support`), `mtce_eligible`, `mtce_can_provide`, `mtce_contract_active`, `chassis`, `dest_city`, `address` (usually ends with `Attn: <name>, <phone>`), `hw_spare_provided_by`, `sheet` and `row`. Keep it in the conversation only (rule 1). It's the only lookup for this serial, so don't re-run it later.
 - Rows that agree on customer, tier, chassis and address count as **settled**.
 - Rows that differ, or `mtce_eligible: false`, become questions in Step 3's combined call. Don't ask them separately.
 - Not found or a non-zero exit: say why in one line (exit 3: no synced copy / Excel not signed in on Windows / macOS Full Disk Access; see `/support-rma-genie:inventory`). The tier then becomes a Step 3 question and the address a Step 5 question.
 
-Derived defaults: **tier** = `support_tier`. **Customer** = `customer`. **Country** = the end of `address`. **Shipping address** = `address` without the `Attn:` part, with the first comma-separated part as the company and the rest as the street line. **Contact** = the `Attn:` part. **Platinum+ partner** = `hw_spare_provided_by` if it's Flash / Maintech / Fujitsu. **Partner location** = `dest_city` (a suggestion). **Expected chassis** = `chassis`.
+Derived defaults: **tier** = `support_tier`. **Customer** = `customer`. **Country** = the end of `address`. **Shipping address** = `address` without the `Attn:` part, with the first comma-separated part as the company and the rest as the street line. **Contact** = the `Attn:` part. **Platinum+ sub-level** = `premium_onsite_support` (Yes / Hybrid / In-Country Local Spares), pre-selected in Step 3. **Platinum+ partner and location** = from `hw_spare_provided_by`, which the sheet often truncates. The first word gives the partner: `Flash…` → Flash, `Main…` / `Maintech…` → **Maintech**, `Fuji…` → Fujitsu. The rest is the depot location (e.g. `Main Charlotte` → Maintech Charlotte). If the location looks cut off (e.g. `Flash Manchest`), use the full city name (Manchester) and mark it to confirm in Step 5. If `hw_spare_provided_by` is empty, suggest `dest_city`. **Expected chassis** = `chassis`.
 
 Show one short block with the entitlement and any duplicate RMAs found (key / summary / status / created). If there's a duplicate, add it as a question in Step 3; don't stop just for that.
 
@@ -110,9 +110,9 @@ Use **one** AskUserQuestion call with up to 4 questions. Include only the ones t
 3. **Sheet row**: only if the rows differ. One option per row (row, customer, dest city).
 4. **Entitlement**: only if MTCE is inactive, the tier is unknown, or there's a duplicate RMA. Merge these into one question, e.g. `Continue (MTCE inactive, flag it in the ticket)` / `Stop` / `Draft only, don't create`. If the tier is unknown, offer `Platinum` / `Platinum+` / `Nuances` instead.
 
-Follow up only for **Platinum+**. Ask the sub-level (`Yes (part + FE within 4h)` / `Hybrid (part, no FE)` / `In-Country Local Spares` / `Nuance: ship from HQ`). For a Nuance, also ask `(i) part not stocked at partner depot` / `(ii) partner out of stock (Spare Qty = 0)`. Put both in one AskUserQuestion. Platinum needs no follow-up.
+Follow up only for **Platinum+**. Ask the sub-level, with the sheet's `premium_onsite_support` value as the first (recommended) option (`Yes (part + FE within 4h)` / `Hybrid (part, no FE)` / `In-Country Local Spares` / `Nuance: ship from HQ`). For a Nuance, also ask `(i) part not stocked at partner depot` / `(ii) partner out of stock (Spare Qty = 0)`. Put both in one AskUserQuestion. Platinum needs no follow-up.
 
-For "Other" parts, take the part number from rma-jira-fields.md §5. Ask for the PSU, fan and Solace orderable part numbers in Step 5.
+For "Other" parts, take the part number from rma-jira-fields.md §5. Ask for the fan and the Solace orderable SFP / disk part numbers in Step 5. For a PSU, use the §5 part number for the platform and only ask if the platform isn't listed.
 
 ## Step 4: Evidence scan (scripted, about 2 s)
 
@@ -158,7 +158,7 @@ Print the header block and the Issue summary in full. **Don't print the CLI bodi
 - Data center address (only if different) · Booking ref (optional)
 [Platinum+] Partner, location, work order #, replacement S/N ("TBD" is fine)
 [Nuance (ii)] Partner + depot to backfill
-[PSU / fan / SFP / disk] Solace part number
+[fan / SFP / disk, or a PSU on an unlisted platform] Solace part number
 ```
 End with: *"Reply with the missing values and any edits. Say **create** (or **draft**) when it's right."*
 
