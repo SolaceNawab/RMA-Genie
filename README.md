@@ -16,9 +16,8 @@ raises a standardized OPS RMA ticket in Jira.
 | Plugin | Commands | What it does |
 |---|---|---|
 | [**support-rma-genie**](plugins/support-RMA-Genie) (RMA Genie) | `/support-rma-genie:raise`<br>`/support-rma-genie:inventory` | Serial lookup in the Shipment Inventory Record, then builds the OPS RMA Jira from the gather-diagnostics, shows a preview, and creates the ticket. |
-| [support-jira](plugins/support-JiraCreation) | `/support-jira:draft-jira` | Collects the serial and support plan, then decrypts and extracts the gather-diagnostics. Jira drafting is still to come. |
 
-Most people only need **support-rma-genie**.
+**support-rma-genie** is the only plugin you need.
 
 ---
 
@@ -225,12 +224,15 @@ you still have the old one:
 /reload-plugins
 ```
 
-**Retired plugin:** `support-rma` (`/support-rma:inventory`) has been removed. Its inventory lookup is
-built into RMA Genie as `/support-rma-genie:inventory`, and `/support-jira:draft-jira` uses that too.
-If you still have it installed:
+**Retired plugins:** both have been removed, because RMA Genie now does their jobs.
+- `support-rma` (`/support-rma:inventory`): the inventory lookup is built in as `/support-rma-genie:inventory`.
+- `support-jira` (`/support-jira:draft-jira`): RMA Genie's `raise` finds, decrypts and extracts the gather-diagnostics itself.
+
+If you still have either installed:
 
 ```
 /plugin uninstall support-rma@coop-support-hack
+/plugin uninstall support-jira@coop-support-hack
 /reload-plugins
 ```
 

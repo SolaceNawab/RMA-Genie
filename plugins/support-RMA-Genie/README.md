@@ -21,7 +21,7 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 
 ## Prerequisites
 
-- **[support-gd-handler](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-gd-handler)** from support-marketplace (`/plugin install support-gd-handler@support-marketplace`). On Windows RMA Genie uses its bundled `decrypt-cms.exe` to decrypt the bundle, and on any platform it uses `filedrop.py` to fetch a bundle that isn't downloaded yet. support-jira's `/support-jira:draft-jira` is no longer needed. Its requirements apply too:
+- **[support-gd-handler](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-gd-handler)** from support-marketplace (`/plugin install support-gd-handler@support-marketplace`). On Windows RMA Genie uses its bundled `decrypt-cms.exe` to decrypt the bundle, and on any platform it uses `filedrop.py` to fetch a bundle that isn't downloaded yet. Its requirements apply too:
   - `pip install -r ~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/requirements.txt` (installs `requests`)
   - `decrypt-cms`: bundled with the plugin on Windows. On Linux/macOS it must be on `PATH` or reachable through the RND shared load.
 - **Python 3** (standard library only). It's used by `scripts/extract_gd.py`.
