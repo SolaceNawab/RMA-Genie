@@ -9,15 +9,6 @@
   },
   "plugins": [
     {
-      "name": "support-rma",
-      "description": "List available replacement serial numbers from the live Shipment Inventory Record; foundation for automated RMA generation.",
-      "source": "./plugins/support-SupportPlans",
-      "author": {
-        "name": "Nawab Amedi"
-      },
-      "category": "support"
-    },
-    {
       "name": "support-jira",
       "description": "Collect a support case's serial number and support plan, then decrypt and extract the customer's gather-diagnostics bundle; foundation for automated Jira ticket drafting.",
       "source": "./plugins/support-JiraCreation",
