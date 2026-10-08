@@ -44,7 +44,7 @@ File and folder pickers: Windows Forms dialog (PowerShell), `osascript` on macOS
 - **Windows:** install the `support-gd-handler` plugin from support-marketplace.
   It ships `decrypt-cms.exe`.
 - **Linux:** the RND shared loads mounted at `/home/public`, or `decrypt-cms` on `$PATH`.
-- The **support-rma** plugin (`/plugin install support-rma@coop-support-hack`)
+- The **support-rma-genie** plugin (RMA Genie, `/plugin install support-rma-genie@coop-support-hack`)
   for the support-plan lookup. Without it the skill asks for the plan instead.
 - A Solace Microsoft account for the decrypt sign-in.
 - The **atlassian** plugin (`/plugin install atlassian@claude-plugins-official`)

@@ -35,13 +35,13 @@ Do not guess or invent a serial number. If the user doesn't know it, say the tic
 
 ## Step 2 — Support plan
 
-Look the plan up in the Shipment Inventory Record with the support-rma plugin's serial lookup (the same one `/support-rma:inventory` uses). Find its script at `~/.claude/plugins/cache/coop-support-hack/support-rma/<version>/scripts/inventory.sh`, using the newest `<version>` directory present, and run it in the foreground:
+Look the plan up in the Shipment Inventory Record with RMA Genie's serial lookup (the same one `/support-rma-genie:inventory` uses). Find its script at `~/.claude/plugins/cache/coop-support-hack/support-rma-genie/<version>/scripts/inventory.sh`, using the newest `<version>` directory present, and run it in the foreground:
 
 ```bash
-"<inventory.sh>" lookup "<serial>" --state-dir "$HOME/.claude/plugins/data/support-rma-coop-support-hack"
+bash "<inventory.sh>" lookup "<serial>" --state-dir "$HOME/.claude/plugins/data/support-rma-genie-coop-support-hack"
 ```
 
-It takes a few seconds. The output is JSON. Each entry in `results[]` has `support_tier` (`Platinum+` when Premium Onsite Support is Yes, otherwise `Platinum`), plus `customer`, `sheet` and `row`.
+It takes a few seconds. The output is JSON. Each entry in `results[]` has `support_tier` (`Platinum+` when Premium Onsite Support is Yes / Hybrid / In-Country Local Spares, `Platinum` when blank or "No"), plus `customer`, `sheet` and `row`.
 
 - **One result, or several that all have the same `support_tier`:** use that tier. Don't ask. Tell the user: "Support plan from the inventory sheet: <tier> (<customer>, row <row>)."
 - **Several results with different tiers:** list each one (row, customer, tier, dest city), then ask the question below.

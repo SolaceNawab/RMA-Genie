@@ -86,8 +86,8 @@ support-rma-genie/   (folder: plugins/support-RMA-Genie)
 ```
 
 The inventory scripts were brought over from Nawab Amedi's support-rma plugin (`/support-rma:inventory`).
-They're the same on every platform, with the same JSON output. support-rma still exists for now and will be
-removed once this built-in copy has been confirmed.
+They're the same on every platform, with the same JSON output. The separate support-rma plugin has been
+retired; this is now the only copy.
 
 `extract_gd.py` can also be run on its own:
 ```
