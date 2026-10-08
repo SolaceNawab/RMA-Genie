@@ -56,6 +56,7 @@ Rules:
 - **Full appliance:** Part# = the chassis product # (e.g. `CHS-3560AC-05-A`).
 - **Customer** = the short business name the user supplies (e.g. `ACME`), not the legal name.
 - **Partner** = `Flash`, `Maintech` or `Fujitsu`; **Location** = the depot city/country (e.g. `Singapore`).
+- **Platinum+ only, Platinum Plus Maintenance sheet** (`PlatinumPlusMaintenance.xlsx`): per part `Support By` (FLASH / MAINTECH), `Response Time` (4H = Yes, 4H PART ONLY / HYBRID = Hybrid, BEST EFFORT / SHIPS NBD = In-Country Local Spares), `Bin` (partner + depot, e.g. `FLASH HEATHROW`, `MAIN SINGAPORE`), `Spare Qty` (0 / `NO SPARE` = Nuance (ii)), `Solace Part #` (orderable part, e.g. `PKG-3560-HPTRGM4-8X10GE` for a full appliance), `Spare Serial` (assigned spare unit). This takes precedence over the inventory sheet's partner and sub-level when present.
 - **From the inventory sheet:** `Hardware spare provided by` holds partner + depot, often truncated: `Main Charlotte` = Maintech Charlotte, `Flash Manchest` = Flash Manchester, `Flash Greensbor` = Flash Greensboro. `Main…` always means **Maintech**.
 
 Examples (synthetic):
