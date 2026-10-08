@@ -60,7 +60,13 @@ Keep this in chat, one line per step, ticking as you go:
    X="${CLAUDE_PLUGIN_ROOT}/scripts/extract_gd.py"
    INV="${CLAUDE_PLUGIN_ROOT}/scripts/inventory.sh"
    echo "PY=$PY"
-   bash "$INV" lookup "<serial>" --path '${user_config.inventory_path}' --url '${user_config.inventory_url}' --state-dir "${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie-coop-support-hack}"; echo "inventory_exit=$?"
+   SD="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie-coop-support-hack}"
+   INV_JSON=$(bash "$INV" lookup "<serial>" --path '${user_config.inventory_path}' --url '${user_config.inventory_url}' --state-dir "$SD"); rc=$?
+   printf '%s\n' "$INV_JSON"; echo "inventory_exit=$rc"
+   # Platinum Plus Maintenance sheet: ONLY for Platinum+ customers
+   if printf '%s' "$INV_JSON" | grep -q '"support_tier": "Platinum+"'; then
+     "$PY" -I "${CLAUDE_PLUGIN_ROOT}/scripts/inventory.py" ppm -Serial "<serial>" -Path '${user_config.ppm_path}' -StateDir "$SD"; echo "ppm_exit=$?"
+   else echo "ppm: skipped (not Platinum+)"; fi
    "$PY" -I "$X" discover . ~/Downloads
    ```
 2. **Read** `rma-jira-fields.md`.
@@ -70,6 +76,15 @@ Keep this in chat, one line per step, ticking as you go:
 - Rows that agree on customer, tier, chassis and address count as **settled**.
 - Rows that differ, or `mtce_eligible: false`, become questions in Step 3's combined call. Don't ask them separately.
 - Not found or a non-zero exit: say why in one line (exit 3: no synced copy / Excel not signed in on Windows / macOS Full Disk Access; see `/support-rma-genie:inventory`). The tier then becomes a Step 3 question and the address a Step 5 question.
+
+**Platinum Plus Maintenance (Platinum+ only).** Run it **only** when the customer is Platinum+: from the inventory sheet in Step 1, or, if the lookup failed, when the user picks Platinum+ in Step 3 (then run the same `ppm` command once, before Step 4). Never read it for Platinum customers, and don't mention it to them. The output is JSON: `results[]` has one row per spare-able part for the serial, with `solace_part`, `partner_part`, `support_by`, `response_time`, `sub_level` (`4H` → Yes, `4H PART ONLY` / `HYBRID` → Hybrid, `BEST EFFORT…` / `SHIPS NBD…` → In-Country Local Spares), `blades_excluded` (response time says "NO BLADES"), `status` (`COVERED` / `NO SPARE`), `bin`, `partner` + `depot` (from the bin, e.g. `FLASH HEATHROW` → Flash / Heathrow), `spare_qty`, `in_stock`, `spare_serial` (assigned spare units, `;`-separated) and `covered_qty`. Keep it in the conversation only (rule 1). If it is used, it **overrides** the inventory sheet for these defaults:
+- **Partner and location** = `partner` + `depot` of the rows. Truncated depots (`Manchest`, `Greensbor`, `Mississau`) get the full city name and are marked to confirm in Step 5.
+- **Sub-level** = `sub_level`. If it differs from the inventory sheet's `premium_onsite_support`, show both and recommend the Platinum Plus value in Step 3.
+- **The chosen part's row** (Step 3) gives the **Solace orderable part #** (`solace_part`) and stock. Match the part from the GD by family: ADB → `ADB-`, NAB → `NAB-`, HBA → `HBA-`, PSU → `CHS-PWRAC`, fan → `CHS-FAN`, disk → `CHS-SSD`, full appliance → `PKG-`. If the GD's product # differs from `solace_part` (e.g. the blade was upgraded), flag it in the preview.
+- **No stock** (`in_stock: false`, i.e. Spare Qty 0 or `NO SPARE`) → recommend **Nuance (ii)** (partner out of stock; ship from HQ and backfill `<partner> <depot>`). **A blade on a "NO BLADES" contract** (`blades_excluded`) → recommend **Nuance (i)** (not stocked at the depot).
+- **Replacement S/N candidate** = `spare_serial` of the chosen part's row (for a full appliance, the spare appliance). Show it as "suggested from Platinum Plus Maintenance, confirm with Ops". Never treat it as confirmed.
+- **Partner order # (Flash / Maintech only).** As soon as the Platinum Plus Maintenance lookup has run and the partner is **Flash or Maintech**, ask for the partner's order (work order) number. It goes in the Summary (`… via <Partner> <Location> Order# <n>`) and the "Field service work order" line. Ask it in the Step 3 combined question (or in the sub-level follow-up, if the lookup only ran after the user picked Platinum+). Don't ask it for Fujitsu, Platinum, or a Nuance shipped from HQ.
+- Serial not in the sheet, file not found, or a non-zero exit: one line on why, then continue with the inventory-sheet defaults.
 
 Derived defaults: **tier** = `support_tier`. **Customer** = `customer`. **Country** = the end of `address`. **Shipping address** = `address` without the `Attn:` part, with the first comma-separated part as the company and the rest as the street line. **Contact** = the `Attn:` part. **Platinum+ sub-level** = `premium_onsite_support` (Yes / Hybrid / In-Country Local Spares), pre-selected in Step 3. **Platinum+ partner and location** = from `hw_spare_provided_by`, which the sheet often truncates. The first word gives the partner: `Flash…` → Flash, `Main…` / `Maintech…` → **Maintech**, `Fuji…` → Fujitsu. The rest is the depot location (e.g. `Main Charlotte` → Maintech Charlotte). If the location looks cut off (e.g. `Flash Manchest`), use the full city name (Manchester) and mark it to confirm in Step 5. If `hw_spare_provided_by` is empty, suggest `dest_city`. **Expected chassis** = `chassis`.
 
@@ -103,14 +118,15 @@ Show one compact table: hostname, platform, chassis product # and serial, SolOS,
 
 ## Step 3: One combined question
 
-Use **one** AskUserQuestion call with up to 4 questions. Include only the ones that apply:
+Use **one** AskUserQuestion call with up to 4 questions. Include only the ones that apply. If more than 4 apply, move the partner order # to the Step 5 checklist (top line):
 
 1. **GD source**: only if Step 2 found no matching extracted GD.
 2. **Part to replace** (single select). Build the options from the inventory, with likely-faulty components first: `Full appliance <chassis product #>`, `ADB <product #> slot <x/y>`, `NAB …`, `PSU (power module N: <state>)`. "Other" covers SFP / HBA / disk / fan. If the GD isn't decrypted yet, offer generic options (Full appliance / PSU / ADB / NAB).
 3. **Sheet row**: only if the rows differ. One option per row (row, customer, dest city).
-4. **Entitlement**: only if MTCE is inactive, the tier is unknown, or there's a duplicate RMA. Merge these into one question, e.g. `Continue (MTCE inactive, flag it in the ticket)` / `Stop` / `Draft only, don't create`. If the tier is unknown, offer `Platinum` / `Platinum+` / `Nuances` instead.
+4. **Partner order #**: only if the Platinum Plus Maintenance lookup ran and the partner is Flash or Maintech. Question: *"<Partner> <Depot> order # for this RMA? Type it in Other (e.g. 2491)."* Options: `Not raised yet: use TBD` / `Ask me with the case details`. A typed answer is the order number; strip a leading `#`.
+5. **Entitlement**: only if MTCE is inactive, the tier is unknown, or there's a duplicate RMA. Merge these into one question, e.g. `Continue (MTCE inactive, flag it in the ticket)` / `Stop` / `Draft only, don't create`. If the tier is unknown, offer `Platinum` / `Platinum+` / `Nuances` instead.
 
-Follow up only for **Platinum+**. Ask the sub-level, with the sheet's `premium_onsite_support` value as the first (recommended) option (`Yes (part + FE within 4h)` / `Hybrid (part, no FE)` / `In-Country Local Spares` / `Nuance: ship from HQ`). For a Nuance, also ask `(i) part not stocked at partner depot` / `(ii) partner out of stock (Spare Qty = 0)`. Put both in one AskUserQuestion. Platinum needs no follow-up.
+Follow up only for **Platinum+**. If the Platinum Plus Maintenance lookup only ran now (the user picked Platinum+) and the partner is Flash or Maintech, add the **partner order #** question to this follow-up. Ask the sub-level, with the Platinum Plus Maintenance `sub_level` (or else the sheet's `premium_onsite_support`) as the first, recommended option, plus any Nuance it recommends (no stock / no blades) (`Yes (part + FE within 4h)` / `Hybrid (part, no FE)` / `In-Country Local Spares` / `Nuance: ship from HQ`). For a Nuance, also ask `(i) part not stocked at partner depot` / `(ii) partner out of stock (Spare Qty = 0)`. Put both in one AskUserQuestion. Platinum needs no follow-up.
 
 For "Other" parts, take the part number from rma-jira-fields.md §5. Ask for the fan and the Solace orderable SFP / disk part numbers in Step 5. For a PSU, use the §5 part number for the platform and only ask if the platform isn't listed.
 
@@ -156,7 +172,7 @@ Print the header block and the Issue summary in full. **Don't print the CLI bodi
 - Symptoms / troubleshooting done / RCA wanted?  (needed when the scan found no current fault)
 - Customer short name / country / shipping address / contact: <pre-filled> (from inventory sheet)
 - Data center address (only if different) · Booking ref (optional)
-[Platinum+] Partner, location, work order #, replacement S/N ("TBD" is fine)
+[Platinum+] Partner, location, replacement S/N ("TBD" is fine). Partner order # only if Flash / Maintech and not already given in Step 3
 [Nuance (ii)] Partner + depot to backfill
 [fan / SFP / disk, or a PSU on an unlisted platform] Solace part number
 ```
@@ -202,6 +218,6 @@ Salesforce case <case number>: add <KEY> to the Jira tab and set Hardware Fault 
 
 ## Roadmap (not in this version)
 
-- Read the Platinum Plus Maintenance sheet for the sub-level, partner depot and Spare Qty, so Platinum+ sub-levels and Nuance (ii) can be detected too.
+- Detect "Spare at Cust" (customer-held spare, so only an FE is needed) once it's clear which Platinum Plus Maintenance column holds it.
 - A post-install update mode (add install / return details to an existing RMA).
 - A Salesforce lookup to pre-fill the case details.

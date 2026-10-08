@@ -6,6 +6,7 @@ inventory.sh calls this when powershell.exe isn't available. It produces the sam
 JSON and exit codes as the PowerShell scripts, so the skills read either one.
 
     inventory.py lookup -Serial S1,S2 [-Path FILE] [-StateDir DIR] [-Url URL] [-MaxAgeMinutes N] [-Refresh]
+    inventory.py ppm    -Serial S1,S2 [-Path FILE] [-StateDir DIR]     # Platinum Plus Maintenance sheet (Platinum+ only)
     inventory.py list   [-Path FILE] [-StateDir DIR] [-SerialColumn HDR|LETTER] [-Sheet NAME]
                         [-AvailableOnly] [-Format json|table] [-Url URL] [-MaxAgeMinutes N] [-Refresh]
 
@@ -58,6 +59,27 @@ FIELD_MAP = [
 ]
 REQUIRED_COUNT = 7
 
+# Platinum Plus Maintenance sheet (PlatinumPlusMaintenance.xlsx): one row per spare-able part
+# per appliance. Output key -> sheet header (matched trimmed, case-insensitive).
+PPM_NAME = "PlatinumPlusMaintenance*.xlsx"
+PPM_FIELD_MAP = [
+    ("customer", "Customer"),
+    ("solace_part", "Solace Part #"),
+    ("support_by", "Support By"),
+    ("response_time", "Response Time"),
+    ("status", "Status"),
+    ("bin", "Bin"),
+    ("spare_qty", "Spare Qty"),
+    # Optional from here on.
+    ("partner_part", "Partner Part #"),
+    ("system_location", "System Location"),
+    ("system_region", "System Region"),
+    ("covered_qty", "Covered Qty"),
+    ("spare_serial", "Spare Serial"),
+]
+PPM_REQUIRED_COUNT = 7
+PARTNERS = [("flash", "Flash"), ("maintech", "Maintech"), ("main", "Maintech"), ("fujitsu", "Fujitsu"), ("fuji", "Fujitsu")]
+
 SCRIPT = "inventory"
 
 
@@ -82,8 +104,8 @@ FLAGS = {  # lowercased flag -> (key, takes_value)
 
 
 def parse_args(argv):
-    if not argv or argv[0] not in ("lookup", "list"):
-        fail(2, "usage: inventory.py lookup|list [flags] (see the header of this file)")
+    if not argv or argv[0] not in ("lookup", "list", "ppm"):
+        fail(2, "usage: inventory.py lookup|ppm|list [flags] (see the header of this file)")
     opts = {"mode": argv[0], "serial": [], "name": DEFAULT_NAME, "max_age": 10.0,
             "refresh": False, "available_only": False, "format": "json"}
     i = 1
@@ -91,7 +113,7 @@ def parse_args(argv):
         a = argv[i]
         spec = FLAGS.get(a.lower().replace("--", "-", 1)) if a.startswith("-") else None
         if spec is None:
-            if opts["mode"] == "lookup" and not a.startswith("-"):
+            if opts["mode"] in ("lookup", "ppm") and not a.startswith("-"):
                 opts["serial"].append(a); i += 1; continue
             fail(2, "unknown argument: %s" % a)
         key, takes = spec
@@ -100,6 +122,8 @@ def parse_args(argv):
         if i + 1 >= len(argv):
             fail(2, "%s needs a value" % a)
         v = argv[i + 1]
+        if v.startswith("${user_config.") or v.startswith("${CLAUDE_"):
+            i += 2; continue   # unsubstituted plugin placeholder = not set
         if key == "serial":
             opts["serial"].append(v)
         elif key == "max_age":
@@ -180,7 +204,7 @@ def resolve_inventory(opts):
         return {"path": p, "origin": "path", "as_of": os.path.getmtime(p), "fetched": False}
 
     state = opts.get("state_dir")
-    cache = os.path.join(state, "inventory_path.txt") if state else None
+    cache = os.path.join(state, opts.get("cache_name") or "inventory_path.txt") if state else None
     roots = sync_roots()
     synced = None
     if cache and os.path.isfile(cache):
@@ -199,7 +223,7 @@ def resolve_inventory(opts):
         return {"path": synced, "origin": "synced", "as_of": os.path.getmtime(synced), "fetched": False}
 
     # A SharePoint copy fetched earlier on Windows (same state dir) is still usable if fresh.
-    if state:
+    if state and not opts.get("cache_name"):
         copy = os.path.join(state, "sharepoint", "Shipment Inventory Record.xlsx")
         if os.path.isfile(copy) and not opts["refresh"] and (time.time() - os.path.getmtime(copy)) / 60 < opts["max_age"]:
             return {"path": copy, "origin": "sharepoint", "as_of": os.path.getmtime(copy), "fetched": False}
@@ -381,22 +405,8 @@ class Workbook:
 
 # --- lookup ---------------------------------------------------------------------
 
-def run_lookup(opts):
-    serials = []
-    for s in opts["serial"]:
-        for tok in re.split(r"[,\s]+", s):
-            tok = tok.strip()
-            if tok and tok.upper() not in (x.upper() for x in serials):
-                serials.append(tok)
-    if not serials:
-        fail(2, "no serial number given")
-    want = {s.upper() for s in serials}
-    wanted = [h for _, h in FIELD_MAP]
-
-    t0 = time.time()
-    src = resolve_inventory(opts)
-    t1 = time.time()
-    wb = Workbook(src["path"])
+def scan_serials(wb, want, wanted, required):
+    """Stream every sheet once; return (matches, searched, cf_sheets, skipped) for rows whose serial is in want."""
     matches, searched, cf_sheets, skipped = [], [], [], []
 
     for name, state, part in wb.sheets:
@@ -430,7 +440,7 @@ def run_lookup(opts):
                 for i, h in enumerate(wanted):
                     col = next((k for k, v in texts.items() if v.strip().lower() == h.lower()), 0)
                     wanted_cols.append(col)
-                    if not col and i < REQUIRED_COUNT:
+                    if not col and i < required:
                         missing.append(h)
                 if missing:
                     skipped.append("%s (missing: %s)" % (name, ", ".join(missing)))
@@ -449,6 +459,31 @@ def run_lookup(opts):
             values = [wb.cell_text(by_col[wc])[0] if wc in by_col else "" for wc in wanted_cols]
             matches.append({"sheet": name, "row": rownum, "hidden": hidden, "serial": serial,
                             "strike": strike, "values": values})
+    return matches, searched, cf_sheets, skipped
+
+
+def parse_serials(opts):
+    serials = []
+    for s in opts["serial"]:
+        for tok in re.split(r"[,\s]+", s):
+            tok = tok.strip()
+            if tok and tok.upper() not in (x.upper() for x in serials):
+                serials.append(tok)
+    if not serials:
+        fail(2, "no serial number given")
+    return serials
+
+
+def run_lookup(opts):
+    serials = parse_serials(opts)
+    want = {s.upper() for s in serials}
+    wanted = [h for _, h in FIELD_MAP]
+
+    t0 = time.time()
+    src = resolve_inventory(opts)
+    t1 = time.time()
+    wb = Workbook(src["path"])
+    matches, searched, cf_sheets, skipped = scan_serials(wb, want, wanted, REQUIRED_COUNT)
     t2 = time.time()
 
     if not searched:
@@ -489,6 +524,81 @@ def run_lookup(opts):
         "warnings": ["sheet '%s' uses conditional formatting; strikethrough applied that way is not detected" % s for s in cf_sheets],
     }
     print(json.dumps(out, indent=2, ensure_ascii=False))
+
+
+# --- Platinum Plus Maintenance ------------------------------------------------
+
+def ppm_partner(bin_, support_by):
+    """'FLASH HEATHROW' / 'MAIN SINGAPORE' -> (partner, depot); falls back to Support By."""
+    words = (bin_ or "").split()
+    partner, depot = None, ""
+    if words:
+        w = words[0].lower()
+        partner = next((name for pre, name in PARTNERS if w.startswith(pre)), None)
+        depot = " ".join(words[1:]).title() if partner else (bin_ or "").title()
+    if not partner and support_by:
+        w = support_by.strip().lower()
+        partner = next((name for pre, name in PARTNERS if w.startswith(pre)), support_by.strip().title())
+    return partner, depot
+
+
+def ppm_sub_level(rt):
+    """Response Time -> Platinum+ sub-level suggestion."""
+    t = (rt or "").strip().upper()
+    if t == "4H":
+        return "Yes"
+    if "PART ONLY" in t or "HYBRID" in t:
+        return "Hybrid"
+    if t:
+        return "In-Country Local Spares"
+    return ""
+
+
+def run_ppm(opts):
+    serials = parse_serials(opts)
+    want = {s.upper() for s in serials}
+    wanted = [h for _, h in PPM_FIELD_MAP]
+    opts = dict(opts, name=opts.get("name") if opts.get("name") not in (None, DEFAULT_NAME) else PPM_NAME,
+                cache_name="ppm_path.txt")
+    t0 = time.time()
+    src = resolve_inventory(opts)
+    t1 = time.time()
+    wb = Workbook(src["path"])
+    matches, searched, cf_sheets, skipped = scan_serials(wb, want, wanted, PPM_REQUIRED_COUNT)
+    t2 = time.time()
+    if not searched:
+        fail(4, "no sheet has all of the columns: %s. Skipped: %s" % (", ".join(wanted[:PPM_REQUIRED_COUNT]), "; ".join(skipped)))
+
+    keys = [k for k, _ in PPM_FIELD_MAP]
+    results = []
+    for m in matches:
+        f = dict(zip(keys, m["values"]))
+        partner, depot = ppm_partner(f["bin"], f["support_by"])
+        qty = to_int(f["spare_qty"]) if f["spare_qty"].strip().lstrip("-").isdigit() else None
+        rt = f["response_time"].upper()
+        results.append({
+            "serial": m["serial"], "sheet": m["sheet"], "row": m["row"],
+            "customer": f["customer"],
+            "solace_part": f["solace_part"], "partner_part": f["partner_part"],
+            "support_by": f["support_by"], "response_time": f["response_time"],
+            "sub_level": ppm_sub_level(f["response_time"]),
+            "blades_excluded": "NO BLADES" in rt,
+            "status": f["status"], "bin": f["bin"],
+            "partner": partner, "depot": depot,
+            "spare_qty": qty if qty is not None else f["spare_qty"],
+            "in_stock": bool(qty) and f["status"].strip().upper() != "NO SPARE",
+            "covered_qty": f["covered_qty"], "spare_serial": f["spare_serial"],
+            "system_location": f["system_location"], "system_region": f["system_region"],
+            "crossed_off": m["strike"] == "full",
+        })
+    found = {m["serial"].upper() for m in matches}
+    print(json.dumps({
+        "source": src["path"], "origin": src["origin"], "as_of": iso(src["as_of"]),
+        "seconds": {"locate": round(t1 - t0, 1), "scan": round(t2 - t1, 1)},
+        "searched": searched, "results": results,
+        "not_found": [s for s in serials if s.upper() not in found],
+        "warnings": ["sheet '%s' uses conditional formatting; strikethrough applied that way is not detected" % s for s in cf_sheets],
+    }, indent=2, ensure_ascii=False))
 
 
 # --- listing --------------------------------------------------------------------
@@ -598,6 +708,8 @@ def main():
     opts = parse_args(sys.argv[1:])
     if opts["mode"] == "lookup":
         run_lookup(opts)
+    elif opts["mode"] == "ppm":
+        run_ppm(opts)
     else:
         run_list(opts)
 

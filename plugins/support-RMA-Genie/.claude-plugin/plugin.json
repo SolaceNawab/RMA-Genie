@@ -1,7 +1,7 @@
 {
   "name": "support-rma-genie",
   "displayName": "RMA Genie",
-  "version": "0.8.1",
+  "version": "0.9.1",
   "description": "RMA Genie: look up serials in the live Shipment Inventory Record and raise standardized OPS RMA Jira tickets for Solace appliance hardware replacements from gather-diagnostics.",
   "author": {
     "name": "Jamil Wansa"
@@ -28,6 +28,11 @@
       "type": "string",
       "title": "Shipment Inventory Record SharePoint URL",
       "description": "Fetched through your signed-in Excel when no synced copy is found. Leave empty for the Operations site's Ship Spreadsheet/Shipment Inventory Record.xlsx."
+    },
+    "ppm_path": {
+      "type": "file",
+      "title": "Platinum Plus Maintenance (.xlsx)",
+      "description": "Local path of the OneDrive-synced 'PlatinumPlusMaintenance.xlsx' (same Ship Spreadsheet folder). Leave empty to auto-discover. Only read for Platinum+ customers."
     }
   }
 }
