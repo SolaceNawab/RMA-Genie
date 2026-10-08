@@ -9,15 +9,6 @@
   },
   "plugins": [
     {
-      "name": "support-jira",
-      "description": "Collect a support case's serial number and support plan, then decrypt and extract the customer's gather-diagnostics bundle; foundation for automated Jira ticket drafting.",
-      "source": "./plugins/support-JiraCreation",
-      "author": {
-        "name": "Anthony Farkouh"
-      },
-      "category": "support"
-    },
-    {
       "name": "support-rma-genie",
       "description": "RMA Genie: Raise standardized OPS RMA Jira tickets for Solace appliance hardware replacements (PSU/ADB/NAB/SFP/full appliance): parses an extracted gather-diagnostics bundle, applies the Platinum / Platinum+ conventions, previews for review, then creates the ticket via the Atlassian MCP.",
       "source": "./plugins/support-RMA-Genie",
