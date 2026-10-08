@@ -1,158 +1,241 @@
-# coop_support_hack
-This is the repo for hackathon
+# RMA Genie
+
+Claude Code plugins for Solace Technical Support. The main one is **RMA Genie**: it looks up an
+appliance serial in the Shipment Inventory Record, reads the customer's gather-diagnostics, and
+raises a standardized OPS RMA ticket in Jira.
+
+- [Plugins](#plugins)
+- [Windows setup](#windows-setup)
+- [macOS setup](#macos-setup)
+- [Usage](#usage)
+- [Updating](#updating)
+- [Troubleshooting](#troubleshooting)
 
 ## Plugins
 
-This repo is a Claude Code plugin marketplace.
+| Plugin | Commands | What it does |
+|---|---|---|
+| [**support-rma-genie**](plugins/support-RMA-Genie) (RMA Genie) | `/support-rma-genie:raise`<br>`/support-rma-genie:inventory` | Serial lookup in the Shipment Inventory Record, then builds the OPS RMA Jira from the gather-diagnostics, shows a preview, and creates the ticket. |
+| [support-jira](plugins/support-JiraCreation) | `/support-jira:draft-jira` | Collects the serial and support plan, then decrypts and extracts the gather-diagnostics. Jira drafting is still to come. |
+| [support-rma](plugins/support-SupportPlans) | `/support-rma:inventory` | Standalone inventory lookup. **Being retired**: RMA Genie now has this built in. |
 
-```
-/plugin marketplace add SolaceNawab/RMA-Genie
-/plugin install support-rma@coop-support-hack
-/plugin install support-jira@coop-support-hack
-/plugin install support-rma-genie@coop-support-hack
-```
+Most people only need **support-rma-genie**.
 
-| Plugin | What it does |
-|---|---|
-| [support-rma](plugins/support-SupportPlans) | `/support-rma:inventory`: serial lookup / available serials from the live Shipment Inventory Record. **Being folded into RMA Genie** (`/support-rma-genie:inventory`); will be removed once that's confirmed. |
-| [support-jira](plugins/support-JiraCreation) | `/support-jira:draft-jira`: collect serial number and support plan, then decrypt and extract the gather-diagnostics bundle (Jira drafting to follow) |
-| [support-rma-genie](plugins/support-RMA-Genie) (RMA Genie) | `/support-rma-genie:raise` and `/support-rma-genie:inventory`: look up the serial in the Shipment Inventory Record (built in), then build the OPS RMA Jira from an extracted gather-diagnostics bundle (Summary/Description per the Hardware Replacement Workflow), preview for edits, then create it via the Atlassian MCP |
+---
 
-> **Renamed:** the RMA plugin was `support-rma-jira` (`/support-rma-jira:raise-rma`). It's now
-> **RMA Genie**: plugin `support-rma-genie`, command **`/support-rma-genie:raise`**. If you
-> installed the old name, switch over once:
->
-> ```
-> /plugin marketplace update coop-support-hack
-> /plugin uninstall support-rma-jira@coop-support-hack
-> /plugin install support-rma-genie@coop-support-hack
-> /reload-plugins
-> ```
+## Windows setup
 
-On a Mac, follow [macOS setup](#macos-setup) first.
+One-time steps. Claude Code on Windows runs its commands in **Git Bash**.
 
-## macOS setup
+### 1. Install the prerequisites
 
-These are the one-time steps a Mac user needs before `/support-rma-genie:inventory` and
-`/support-rma-genie:raise` work. They were tested on macOS (Apple Silicon) with
-Homebrew Python 3.14. On Windows none of this is needed.
+| Tool | How | Check |
+|---|---|---|
+| Claude Code | [Install guide](https://docs.claude.com/en/docs/claude-code/setup) | `claude --version` |
+| Git for Windows (Git Bash) | [git-scm.com](https://git-scm.com/download/win) | `git --version` |
+| Python 3 | [python.org](https://www.python.org/downloads/windows/). Tick **Add python.exe to PATH** during install. | `python --version` |
+| Desktop Excel | Signed in to your Solace account (usually already installed) | |
 
-### 1. Python 3
-
-The inventory lookup and the gather-diagnostics parser are Python on macOS.
-Check with `python3 --version`. If it's missing, run `brew install python`.
+If `python3` opens the Microsoft Store, that's the Store stub. Install Python from python.org as
+above; the plugins also try `python` and `py`.
 
 ### 2. Install the plugins
 
+In Claude Code:
+
 ```
 /plugin marketplace add SolaceNawab/RMA-Genie
 /plugin install support-rma-genie@coop-support-hack
-/plugin install support-jira@coop-support-hack
+
+/plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-gd-handler@support-marketplace
 ```
 
-You need **support-rma-genie 0.8.0 or later**: it has the inventory lookup built in
-(`/support-rma-genie:inventory`), with the macOS backend. The separate `support-rma` plugin is
-no longer needed and is being retired. Old inventory scripts fail on macOS with
-`powershell.exe: not found` (exit 127) or `permission denied` (exit 126). To update:
+**support-gd-handler** ships `decrypt-cms.exe` (used to decrypt gather-diagnostics) and the
+filedrop fetcher. Install its Python dependency once, in Git Bash:
 
 ```
-/plugin marketplace update coop-support-hack
+python -m pip install -r ~/.claude/plugins/marketplaces/support-marketplace/plugins/support-gd-handler/requirements.txt
 ```
 
-Then update the plugins from `/plugin`, and run `/reload-plugins` or restart Claude Code.
+Then run `/reload-plugins` (or restart Claude Code).
 
-### 3. Connect Jira (Atlassian MCP)
-
-If Claude Code signs in through the company gateway (`ANTHROPIC_BASE_URL` /
-`ANTHROPIC_AUTH_TOKEN`) instead of a claude.ai account, the claude.ai Atlassian
-connector doesn't load. Add Atlassian's MCP server directly:
+### 3. Connect Jira
 
 ```
 claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/mcp
 ```
 
-Then, in Claude Code, run `/mcp`, select **atlassian**, choose **Authenticate**, and sign in
-with your Solace Atlassian account (site `sol-jira.atlassian.net`).
+In Claude Code, run `/mcp`, select **atlassian**, choose **Authenticate**, and sign in with your
+Solace Atlassian account (`sol-jira.atlassian.net`).
 
-### 4. Sync the Shipment Inventory Record with OneDrive
+> If you're logged in to Claude Code with a claude.ai account that has the Atlassian connector
+> enabled, that works too and you can skip this step.
 
-On Windows the lookup can open the sheet from SharePoint through Excel. On a Mac it can't,
-so the file has to be synced.
+### 4. Give it access to the Shipment Inventory Record
 
-1. Install **OneDrive for Mac** and sign in with your Solace account.
-2. In a browser, open the Operations SharePoint site, then **Shared Documents**.
-3. On the **Ship Spreadsheet** *folder* (not the file inside it), choose **Add shortcut to My files**.
-4. Wait for OneDrive to finish syncing. The file appears at:
-   ```
-   ~/Library/CloudStorage/OneDrive-SolaceCorporation/Shortcuts/Operations - Ship Spreadsheet/Shipment Inventory Record.xlsx
-   ```
-   The scripts find it on their own and remember the path.
+Pick one:
 
-### 5. Let your terminal app read OneDrive
+- **OneDrive sync (recommended, fastest).** Open the Operations SharePoint site in a browser →
+  **Shared Documents** → on the **Ship Spreadsheet** *folder* (not the file), choose
+  **Add shortcut to My files**. Once OneDrive syncs, the file appears under
+  `C:\Users\<you>\Solace Corporation\Operations - Ship Spreadsheet\` and is found automatically.
+- **Excel fallback (no setup).** If no synced copy is found, the plugin opens the sheet from
+  SharePoint through your signed-in desktop Excel. This takes about 30–40 s and is cached for
+  10 minutes.
 
-macOS blocks terminal apps from cloud-storage folders until you allow it. Without
-this step the lookup fails with exit 3 and
-`macOS blocked access to …/OneDrive-SolaceCorporation (Operation not permitted)`.
-
-1. Open **System Settings → Privacy & Security → Full Disk Access**.
-2. Click **+**, add the app you run Claude Code in (Terminal, iTerm, Termius,
-   IntelliJ, …), and turn it on. If the app appears under **Files and Folders**
-   instead, allow its OneDrive / cloud-storage access there.
-3. **Quit the app completely (⌘Q) and reopen it.** You can resume the session with `claude --continue`.
-
-### 6. Check it works
+### 5. Check it works
 
 ```
 /support-rma-genie:inventory <serial>
 ```
 
-You should get the customer, tier, MTCE eligibility, chassis, destination city and
-address, with the source shown as "Live sheet (OneDrive sync …)".
+You should get the customer, tier, MTCE eligibility, chassis, destination city and address.
 
-### 7. decrypt-cms on a Mac (to decrypt gather-diagnostics)
+The first time you decrypt a gather-diagnostics, `decrypt-cms.exe` shows a Microsoft sign-in
+code. Sign in once; the token is cached in `~/.vault-token`.
 
-`decrypt-cms` decrypts the customer's `.tgz.p7m`. support-gd-handler bundles only the
-Windows `.exe`, and the dev servers have the Linux build, but the tool
-(**SolaceDev/decrypt-cms**, internal Go) builds natively for macOS. Build it once:
+---
+
+## macOS setup
+
+One-time steps. Tested on macOS (Apple Silicon) with Homebrew Python 3.14.
+
+### 1. Install the prerequisites
+
+| Tool | How | Check |
+|---|---|---|
+| Claude Code | [Install guide](https://docs.claude.com/en/docs/claude-code/setup) | `claude --version` |
+| Homebrew | [brew.sh](https://brew.sh) | `brew --version` |
+| Python 3 | `brew install python` | `python3 --version` |
+| Go (to build decrypt-cms) | `brew install go` | `go version` |
+| GitHub CLI | `brew install gh`, then `gh auth login` | `gh --version` |
+| OneDrive for Mac | App Store, signed in to your Solace account | |
+
+### 2. Install the plugins
+
+In Claude Code:
 
 ```
-brew install go
-gh repo clone SolaceDev/decrypt-cms ~/repos/decrypt-cms
-cd ~/repos/decrypt-cms && mkdir -p ~/bin && go build -trimpath -o ~/bin/decrypt-cms .
-echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc     # if ~/bin isn't on your PATH yet
+/plugin marketplace add SolaceNawab/RMA-Genie
+/plugin install support-rma-genie@coop-support-hack
+
+/plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-gd-handler@support-marketplace
 ```
 
-Open a new terminal and check with `decrypt-cms -h`. support-gd-handler's filedrop fetch,
-`/support-jira:draft-jira` and `/support-rma-genie:raise` then find it on the `PATH`. To
-update it later, run `git pull` and the `go build` line again.
-
-How it decrypts: it signs in to **Vault** (default `-method jwt`; `oidc` and `github` also
-work), gets AWS credentials, and has **AWS KMS** decrypt the bundle's key. The private key
-never leaves KMS. Your Solace account needs the Vault access for this. If decryption is
-refused on the Mac, check whether it works for you on a dev server. If it doesn't work
-there either, it's an access issue rather than a Mac issue.
-
-Without a Mac build you can still decrypt and extract on a dev server, copy the
-**extracted folder** to the Mac (e.g. `scp -r <you>@<dev-server>:<path>/gather-diagnostics_… ~/Downloads/`),
-and run `/support-rma-genie:raise <serial>`. It finds extracted bundles in the current
-folder and `~/Downloads` and picks the one whose chassis serial matches.
-
-The filedrop fetch (support-gd-handler's `filedrop.py`) also needs Python `requests`.
-Homebrew Python blocks plain `pip install` (PEP 668), so install it for your user only:
+Install `requests` for the filedrop fetcher. Homebrew Python blocks a plain `pip install`
+(PEP 668), so install it for your user:
 
 ```
 python3 -m pip install --user --break-system-packages requests
 ```
 
-### Troubleshooting
+Then run `/reload-plugins` (or restart Claude Code).
 
-| Symptom | Cause / fix |
+### 3. Connect Jira
+
+```
+claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/mcp
+```
+
+In Claude Code, run `/mcp`, select **atlassian**, choose **Authenticate**, and sign in with your
+Solace Atlassian account (`sol-jira.atlassian.net`).
+
+> If you're logged in to Claude Code with a claude.ai account that has the Atlassian connector
+> enabled, that works too. If you sign in through the company gateway (`ANTHROPIC_BASE_URL`),
+> the claude.ai connector doesn't load, so use the command above.
+
+### 4. Sync the Shipment Inventory Record
+
+A Mac can't open the sheet through Excel, so it has to be synced with OneDrive.
+
+1. In a browser, open the Operations SharePoint site → **Shared Documents**.
+2. On the **Ship Spreadsheet** *folder* (not the file inside it), choose **Add shortcut to My files**.
+3. Wait for OneDrive to finish syncing. The file appears at:
+   ```
+   ~/Library/CloudStorage/OneDrive-SolaceCorporation/Shortcuts/Operations - Ship Spreadsheet/Shipment Inventory Record.xlsx
+   ```
+   The plugin finds it automatically.
+
+### 5. Let your terminal read OneDrive
+
+macOS blocks terminal apps from cloud-storage folders until you allow it.
+
+1. Open **System Settings → Privacy & Security → Full Disk Access**.
+2. Click **+**, add the app you run Claude Code in (Terminal, iTerm, IntelliJ, …) and turn it on.
+3. **Quit the app completely (⌘Q) and reopen it.** Resume your session with `claude --continue`.
+
+### 6. Build decrypt-cms
+
+support-gd-handler only ships the Windows `.exe`, so build the Mac version once:
+
+```
+gh repo clone SolaceDev/decrypt-cms ~/repos/decrypt-cms
+cd ~/repos/decrypt-cms && mkdir -p ~/bin && go build -trimpath -o ~/bin/decrypt-cms .
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc     # only if ~/bin isn't on your PATH yet
+```
+
+Open a new terminal and check with `decrypt-cms -h`. To update it later, `git pull` and run the
+`go build` line again.
+
+decrypt-cms signs in to **Vault** and has **AWS KMS** decrypt the bundle, so your Solace account
+needs Vault access. No Mac build? Decrypt on a dev server, copy the **extracted folder** to
+`~/Downloads`, and RMA Genie will pick it up.
+
+### 7. Check it works
+
+```
+/support-rma-genie:inventory <serial>
+```
+
+You should get the customer, tier, MTCE eligibility, chassis, destination city and address, with
+the source shown as "Live sheet (OneDrive sync …)".
+
+---
+
+## Usage
+
+```
+/support-rma-genie:raise                    # asks for the serial and walks you through the RMA
+/support-rma-genie:raise S009004123         # serial given up front
+/support-rma-genie:inventory S009004123     # inventory lookup only
+/support-rma-genie:inventory                # list available serials (takes several minutes)
+```
+
+You can also just ask, e.g. *"raise an RMA for the failed PSU on this appliance"*.
+
+RMA Genie finds extracted gather-diagnostics in the current folder and `~/Downloads`, or decrypts
+an archive for you. It always shows a preview before creating anything in Jira. See the
+[RMA Genie README](plugins/support-RMA-Genie/README.md) for the full flow.
+
+## Updating
+
+```
+/plugin marketplace update coop-support-hack
+/reload-plugins
+```
+
+**Renamed plugin:** RMA Genie used to be `support-rma-jira` (`/support-rma-jira:raise-rma`). If
+you still have the old one:
+
+```
+/plugin marketplace update coop-support-hack
+/plugin uninstall support-rma-jira@coop-support-hack
+/plugin install support-rma-genie@coop-support-hack
+/reload-plugins
+```
+
+## Troubleshooting
+
+| Symptom | Fix |
 |---|---|
-| `powershell.exe: not found` (exit 127) | An old Windows-only inventory script (support-rma < 0.4.0). Use RMA Genie's built-in lookup (support-rma-genie ≥ 0.8.0), or update support-rma. |
-| `permission denied` running `inventory.sh` (exit 126) | Same: an old copy. Update the plugin. |
-| `macOS blocked access to … (Operation not permitted)` (exit 3) | Terminal app lacks Full Disk Access (step 5). Remember to quit and reopen it. |
-| `no OneDrive-synced copy … was found` (exit 3) | Sheet not synced yet, or OneDrive is still syncing or paused (step 4). |
-| `decrypt-cms binary not found` | Build it for macOS (step 7), and make sure `~/bin` is on your `PATH` in a new terminal. |
-| decrypt-cms runs but Vault / AWS access is refused | Account access, not the Mac: check whether it works for you on a dev server; request Vault access if not. |
-| `No module named 'requests'` | Install `requests` (step 7). |
-| Lookup works but the data looks old | Check the OneDrive menu-bar icon: syncing may be paused or behind. |
+| `python3` opens the Microsoft Store (exit 49) — Windows | Install Python from python.org with **Add to PATH** ticked. |
+| `powershell.exe: not found` (exit 127) or `permission denied` (exit 126) — macOS | Old plugin version. Update to support-rma-genie 0.8.0 or later ([Updating](#updating)). |
+| `macOS blocked access to … (Operation not permitted)` (exit 3) | Give your terminal app Full Disk Access, then quit and reopen it ([macOS step 5](#5-let-your-terminal-read-onedrive)). |
+| `no OneDrive-synced copy … was found` (exit 3) | The sheet isn't synced yet, or OneDrive is paused. On Windows, also check that desktop Excel is signed in. |
+| Inventory data looks old | Check the OneDrive icon: syncing may be paused or behind. |
+| `decrypt-cms binary not found` | Windows: install support-gd-handler. macOS: build it ([macOS step 6](#6-build-decrypt-cms)) and open a new terminal. |
+| decrypt-cms runs but Vault / AWS access is refused | An account access issue, not your machine. Check it works on a dev server; request Vault access if not. |
+| `No module named 'requests'` | Install `requests` (step 2 of your OS setup). |
+| Jira tools missing | Run `/mcp` and make sure **atlassian** is connected and authenticated. |
