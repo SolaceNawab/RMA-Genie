@@ -147,17 +147,17 @@ Philosophy: "more is never less" as long as it is helpful. Include everything th
 | Watchers | **Manual only.** The Atlassian MCP has no add-watcher tool and watchers cannot be set at create. Resolve each name with lookupJiraAccountId; after creation list the resolved names + the ticket URL so the user adds them in the browser. No cc comments, no REST calls. |
 | Ignore | Approval custom fields, components. |
 | Ticket URL | `https://sol-jira.atlassian.net/browse/<KEY>` |
-| Buginfo URL | Custom field under Details, set **after** creation: `http://sol-qa-01/buginfo/<KEY>`. Only once the buginfo symlink exists (below). Resolve the field id by name ("Buginfo URL") with `getJiraIssueTypeMetaWithFields` (OPS / RMA) and set it with `editJiraIssue`. |
+| BugInfo URL | `customfield_10980` (URL field under Details), set **after** creation with `editJiraIssue`: `http://sol-qa-01/buginfo/<KEY>`. Only once the buginfo symlink exists (below). |
 
 Duplicate-check JQL: `project = OPS AND issuetype = RMA AND text ~ "<chassis serial>" ORDER BY created DESC` (fields: summary, status, created; maxResults ~10).
 
-**Buginfo symlink** (only on a host where `/home/public/RND/rnd_buginfo` exists, i.e. the Linux dev server): link the case's RTinfo folder under the new OPS key, then set the Buginfo URL field.
+**Buginfo symlink** (only on a host where `/home/public/RND/rnd_buginfo` exists, i.e. the Linux dev server): link the case's RTinfo folder under the new OPS key, then set the BugInfo URL field.
 
 ```bash
 ln -s /home/public/RND/rnd_buginfo/RTinfo/<sf-case-number> /home/public/RND/rnd_buginfo/buginfo/<KEY>
 ```
 
-Example: case `00099875`, RMA `OPS-4879` → `buginfo/OPS-4879 -> RTinfo/00099875`, Buginfo URL `http://sol-qa-01/buginfo/OPS-4879`. Never use `ln -f`: an existing `buginfo/<KEY>` is reported, not replaced.
+Example: case `00099875`, RMA `OPS-4879` → `buginfo/OPS-4879 -> RTinfo/00099875`, BugInfo URL `http://sol-qa-01/buginfo/OPS-4879`. Never use `ln -f`: an existing `buginfo/<KEY>` is reported, not replaced.
 
 After creation, Salesforce: add the OPS key to the case's Jira tab and set **Hardware Fault = Yes**.
 

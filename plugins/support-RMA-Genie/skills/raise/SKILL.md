@@ -189,7 +189,7 @@ Build the full Description from rma-jira-fields.md §3 **once**, at this step: t
 
 **MCP mode**, in one turn where possible:
 1. `createJiraIssue`: cloudId as above, `projectKey: OPS`, `issueTypeName: RMA`, `summary`, `description`, `contentFormat: markdown`, `additional_fields: {"priority": {"name": "<Medium|High>"}}`, plus `"labels": ["Flash"]` or `["Maintech"]` for Platinum+.
-2. Then, in parallel: `createIssueLink` (type `Relates`, new OPS key ↔ the SOL key), `lookupJiraAccountId` for each watcher, `getJiraIssueTypeMetaWithFields` (OPS / RMA) to find the **Buginfo URL** field id by name, and one Bash call for the buginfo symlink (skip it if the case number is `not provided`):
+2. Then, in parallel: `createIssueLink` (type `Relates`, new OPS key ↔ the SOL key), `lookupJiraAccountId` for each watcher, and one Bash call for the buginfo symlink (skip it if the case number is `not provided`):
    ```bash
    B=/home/public/RND/rnd_buginfo; C="<sf-case-number>"; K="<KEY>"
    if [ ! -d "$B/buginfo" ]; then echo "buginfo: not on the dev server, skipped"
@@ -197,7 +197,7 @@ Build the full Description from rma-jira-fields.md §3 **once**, at this step: t
    else [ -d "$B/RTinfo/$C" ] || echo "warning: RTinfo/$C does not exist yet"; ln -s "$B/RTinfo/$C" "$B/buginfo/$K" && ls -l "$B/buginfo/$K"; fi
    ```
    Watchers: one clear match: use it. Several: show them and ask. None: ask for a better name. Never pick one yourself.
-3. If the symlink was created (or already points at `RTinfo/<case>`): `editJiraIssue` with `fields: {"<buginfo field id>": "http://sol-qa-01/buginfo/<KEY>"}`. If the field can't be found, give the URL to the user to paste under Details. If the symlink was skipped or points elsewhere, don't set the field; say why.
+3. If the symlink was created (or already points at `RTinfo/<case>`): `editJiraIssue` with `fields: {"customfield_10980": "http://sol-qa-01/buginfo/<KEY>"}` (BugInfo URL). If the update fails, show the error and give the URL to the user to paste under Details. If the symlink was skipped or points elsewhere, don't set the field; say why.
 
 Final output:
 ```
