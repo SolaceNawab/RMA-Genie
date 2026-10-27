@@ -40,7 +40,7 @@ Nuance types:
 | **(i) Part not stocked at partner depot** | Some SFPs, non-standard configs. Ships direct from Ottawa. |
 | **(ii) Partner out of stock** (Spare Qty = 0) | Emergency direct shipment from Ottawa while the partner depot is backfilled. There is **no separate backfill RMA**: this RMA itself cues Ops to backfill the depot. Say so in the Description. |
 
-Nuances use the **direct (Platinum) Summary format**; the exception is explained in the Description's "Support level" line.
+Nuances use the **direct (Platinum) Summary format**; the exception is explained in the Issue summary (see §3).
 
 ## 2. Summary decision table
 
@@ -86,11 +86,8 @@ Shipping address
 
 [Booking ref / change request: <ref>]
 SolOS: <version from show version>
-Support level: <see rule below>
 [Platinum+] Field service work order: <Partner> #<WO>
 [High priority] Priority justification: <reason>
-Salesforce case: <case number>
-Related Support Jira: SOL-xxxxx
 
 **Diagnostics:**
 
@@ -111,6 +108,7 @@ Related Support Jira: SOL-xxxxx
 
 **Issue summary:**
 <symptoms> → <troubleshooting done> → <suspected cause> → <decision / escalation> → [replacement S/N assigned by Ops] → RCA requested: yes/no
+[Nuances: Shipped from HQ note]
 ````
 
 Per-condition rules:
@@ -120,7 +118,8 @@ Per-condition rules:
 | Opening "Faulty appliance ... replaced with ..." line | Platinum+ only. The replacement S/N comes from Ops (a person tells the engineer): ask the user. If unknown, write `replacement S/N: TBD (Ops to assign)`. For a part (not full appliance) replacement, adapt: `Faulty <part#> S/N <serial> in appliance S/N <chassis> will be replaced from <Partner> <Location>`. |
 | Shipping address | Always its own fenced code block, four lines: the literal `Shipping address`, the company name as written on the address (e.g. `Barclays PLC`, not the Summary short name), the street / city / postcode on one line, then `<contact name> Contact Number <phone>` (e.g. `DCOPS Contact Number 02031344800`). From the inventory `address`: the first comma-separated part is the company, the rest up to `Attn:` is the street line, and the `Attn:` part gives the contact name and phone. With several phone numbers, keep them on the one line separated by ` / `. |
 | Data center address | Only when it differs from the shipping address. Same code-block layout, headed `Data center address`, without the contact line. |
-| Support level line | `Platinum` / `Platinum+ (Yes)` / `Platinum+ (Hybrid)` / `Platinum+ (In-Country Local Spares)` / `Platinum+ exception: shipped from HQ (part not stocked at partner depot)` / `Platinum+ exception: shipped from HQ (partner out of stock; please backfill <Partner> <Location> depot)` |
+| Not in the Description | Support level, Salesforce case number and Related Support Jira. The SOL key goes in the Relates link; the case number is only used for the Buginfo URL (§4) and the Salesforce reminder. |
+| Nuance note | Nuances only: end the Issue summary with `Shipped from HQ: part not stocked at <Partner> <Location> depot` (i) or `Shipped from HQ: <Partner> <Location> out of stock, please backfill the depot` (ii). |
 | Work order line | Platinum+ only (including Nuances where a WO exists). Uses the same partner order # as the Summary (`Flash #2491`). |
 | Priority justification | Only when Priority = High. |
 | show hardware detail | Always. If no GD is available, list the chassis serial (and what the user pasted) and say "GD not available". |
@@ -148,8 +147,17 @@ Philosophy: "more is never less" as long as it is helpful. Include everything th
 | Watchers | **Manual only.** The Atlassian MCP has no add-watcher tool and watchers cannot be set at create. Resolve each name with lookupJiraAccountId; after creation list the resolved names + the ticket URL so the user adds them in the browser. No cc comments, no REST calls. |
 | Ignore | Approval custom fields, components. |
 | Ticket URL | `https://sol-jira.atlassian.net/browse/<KEY>` |
+| Buginfo URL | Custom field under Details, set **after** creation: `http://sol-qa-01/buginfo/<KEY>`. Only once the buginfo symlink exists (below). Resolve the field id by name ("Buginfo URL") with `getJiraIssueTypeMetaWithFields` (OPS / RMA) and set it with `editJiraIssue`. |
 
 Duplicate-check JQL: `project = OPS AND issuetype = RMA AND text ~ "<chassis serial>" ORDER BY created DESC` (fields: summary, status, created; maxResults ~10).
+
+**Buginfo symlink** (only on a host where `/home/public/RND/rnd_buginfo` exists, i.e. the Linux dev server): link the case's RTinfo folder under the new OPS key, then set the Buginfo URL field.
+
+```bash
+ln -s /home/public/RND/rnd_buginfo/RTinfo/<sf-case-number> /home/public/RND/rnd_buginfo/buginfo/<KEY>
+```
+
+Example: case `00099875`, RMA `OPS-4879` → `buginfo/OPS-4879 -> RTinfo/00099875`, Buginfo URL `http://sol-qa-01/buginfo/OPS-4879`. Never use `ln -f`: an existing `buginfo/<KEY>` is reported, not replaced.
 
 After creation, Salesforce: add the OPS key to the case's Jira tab and set **Hardware Fault = Yes**.
 

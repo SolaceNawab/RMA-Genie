@@ -156,7 +156,8 @@ Priority:  Medium | High (reason)
 Labels:    Flash | Maintech | (none)
 Link:      Relates → SOL-xxxxx
 Watchers:  <names> (added manually after creation)
-Header:    Company / Shipping address code block / SolOS / Support level / [WO] / Salesforce case / Related Support Jira
+Header:    Company / Shipping address code block / SolOS / [WO]   (no support level, SF case or SOL key)
+Buginfo:   http://sol-qa-01/buginfo/<KEY>  (symlink to RTinfo/<case> after creation)
 CLI:       show hardware detail (N lines) · show product-key (N) · … · <command>: not available in GD
 Evidence:  <log excerpt lines, verbatim>
 Issue summary: <draft narrative>
@@ -165,7 +166,7 @@ Print the header block and the Issue summary in full. **Don't print the CLI bodi
 
 **(b) What's still missing**, as a checklist. Pre-fill values from the sheet, marked `(from inventory sheet)`, and skip anything already known. Leave out the Platinum+ lines for Platinum customers.
 ```
-- Salesforce case number:
+- Salesforce case number (for the Buginfo URL; not put in the Description):
 - Related Support Jira (SOL-xxxxx):
 - Priority: Medium (default) or High (+ reason):
 - Watchers (names):
@@ -188,13 +189,22 @@ Build the full Description from rma-jira-fields.md §3 **once**, at this step: t
 
 **MCP mode**, in one turn where possible:
 1. `createJiraIssue`: cloudId as above, `projectKey: OPS`, `issueTypeName: RMA`, `summary`, `description`, `contentFormat: markdown`, `additional_fields: {"priority": {"name": "<Medium|High>"}}`, plus `"labels": ["Flash"]` or `["Maintech"]` for Platinum+.
-2. Then, in parallel: `createIssueLink` (type `Relates`, new OPS key ↔ the SOL key) and `lookupJiraAccountId` for each watcher. One clear match: use it. Several: show them and ask. None: ask for a better name. Never pick one yourself.
+2. Then, in parallel: `createIssueLink` (type `Relates`, new OPS key ↔ the SOL key), `lookupJiraAccountId` for each watcher, `getJiraIssueTypeMetaWithFields` (OPS / RMA) to find the **Buginfo URL** field id by name, and one Bash call for the buginfo symlink (skip it if the case number is `not provided`):
+   ```bash
+   B=/home/public/RND/rnd_buginfo; C="<sf-case-number>"; K="<KEY>"
+   if [ ! -d "$B/buginfo" ]; then echo "buginfo: not on the dev server, skipped"
+   elif [ -e "$B/buginfo/$K" ] || [ -L "$B/buginfo/$K" ]; then ls -l "$B/buginfo/$K"; echo "buginfo: already exists"
+   else [ -d "$B/RTinfo/$C" ] || echo "warning: RTinfo/$C does not exist yet"; ln -s "$B/RTinfo/$C" "$B/buginfo/$K" && ls -l "$B/buginfo/$K"; fi
+   ```
+   Watchers: one clear match: use it. Several: show them and ask. None: ask for a better name. Never pick one yourself.
+3. If the symlink was created (or already points at `RTinfo/<case>`): `editJiraIssue` with `fields: {"<buginfo field id>": "http://sol-qa-01/buginfo/<KEY>"}`. If the field can't be found, give the URL to the user to paste under Details. If the symlink was skipped or points elsewhere, don't set the field; say why.
 
 Final output:
 ```
 Created <KEY>: https://sol-jira.atlassian.net/browse/<KEY>
 Summary: <final summary>
 Linked: Relates → SOL-xxxxx
+Buginfo URL: http://sol-qa-01/buginfo/<KEY> → RTinfo/<case>   (or why it was skipped)
 Add these watchers manually (Watch → Add watchers): <resolved display names>
 Salesforce case <case number>: add <KEY> to the Jira tab and set Hardware Fault = Yes.
 ```
@@ -213,7 +223,8 @@ Salesforce case <case number>: add <KEY> to the Jira tab and set Hardware Fault 
 | Section missing | `<command>: not available in GD`. List it in the preview. |
 | `scan` fails | Show stderr, then fall back to a manual grep using evidence-guide.md. |
 | Watcher not found or ambiguous | Show the candidates and ask. Never guess. |
-| SOL link fails | Keep the RMA (the SOL key is in the Description) and report the failure. |
+| SOL link fails | Keep the RMA and report the failure, with the SOL key so the user can link it by hand. |
+| Buginfo symlink exists / not on dev server / field update fails | Keep the RMA. Report it and give the user the `ln -s` command and the Buginfo URL to finish by hand. Never replace an existing link. |
 | createJiraIssue fails | Show the error and the full paste-ready draft. |
 
 ## Roadmap (not in this version)
