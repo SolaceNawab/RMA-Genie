@@ -14,7 +14,7 @@ Background for `extract_gd.py scan`, which implements these patterns (`LOG_PATTE
 4. Grep with `-i` and limit output (`| head -40`); the files can be several MB. Prefer the most recent occurrences and the first occurrence (onset).
 5. Never write files. Never paraphrase a log line as if it were quoted: quote it exactly or describe it as a summary.
 
-Always included regardless of type: `show hardware detail`, `show product-key`.
+Always included regardless of type: `show hardware detail`, `show product-key`. The Jira Description gets only `extract_gd.py excerpt` output (the relevant lines, not whole sections); when you change which lines matter for a part here, update `excerpt` (`BLADE_KEYS`, `EXCERPT_SECTIONS`, `section_excerpt`) too.
 
 ## PSU (power module)
 

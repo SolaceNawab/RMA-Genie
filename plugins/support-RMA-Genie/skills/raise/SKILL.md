@@ -12,7 +12,7 @@ This skill implements **Step 3 of the Hardware Replacement Workflow**: raising t
 
 Reference files:
 - `${CLAUDE_PLUGIN_ROOT}/context/rma-jira-fields.md`: tiers, Summary decision table, Description template, field values, glossary. **Read it in parallel with the Step 1 command** (not later), so it never costs a round trip of its own.
-- `${CLAUDE_PLUGIN_ROOT}/scripts/extract_gd.py`: read-only GD helper. Run it; don't read it. Subcommands: `discover`, `inventory`, `scan`, `sections`, `section`.
+- `${CLAUDE_PLUGIN_ROOT}/scripts/extract_gd.py`: read-only GD helper. Run it; don't read it. Subcommands: `discover`, `inventory`, `scan`, `excerpt`, `sections`, `section`.
 - `${CLAUDE_PLUGIN_ROOT}/context/evidence-guide.md`: background for the patterns `scan` uses. Only read it if the user asks for a deeper manual dig.
 
 ## Hard rules (and why)
@@ -151,18 +151,18 @@ Follow up only for **Platinum+**. If the tier was only settled now (the user pic
 
 For "Other" parts, take the part number from rma-jira-fields.md §5. Ask for the fan and the Solace orderable SFP / disk part numbers in Step 5. For a PSU, use the §5 part number for the platform and only ask if the platform isn't listed.
 
-## Step 4: Evidence scan (scripted, about 2 s)
+## Step 4: Evidence scan (scripted, about 10 s)
 
-Run it in the foreground, in the same Bash call as the CLI extraction:
+Run both in the foreground, in one Bash call:
 
 ```bash
 "$PY" -I "$X" scan "<gd>" <psu|adb|nab|sfp|hba|disk|fan|full>
-"$PY" -I "$X" section "<gd>" "show hardware detail" "show product-key" [full: "show version" "show ip vrf management" "show console"] <SUGGESTED SECTIONS from a previous scan, if known>
+"$PY" -I "$X" excerpt "<gd>" <same part>
 ```
 
 `scan` prints a `VERDICT` plus `CURRENT STATE` (FAULT / ok lines quoted from the CLI), `LOG HISTORY` (matching log lines grouped, with count, first and last, quoted exactly), `SUGGESTED SECTIONS` and `MISSING`. Summarise it in at most 6 bullets. Don't spawn a subagent. Only dig further by hand (grep under the GD, using evidence-guide.md) if the user asks, or if `scan` errors.
 
-**Section choice (no extra question):** include `SUGGESTED SECTIONS` that show something relevant to the part, plus the always-included ones. Include the key `LOG HISTORY` lines as one verbatim code block of their own. The user can drop any of these in the preview.
+**Diagnostics = the `excerpt` output, nothing more.** It holds only what Ops needs, each line copied verbatim, with `[...]` where lines were left out: the identity lines and the faulty part's block from `show hardware detail` (for a full appliance: power, disks and each blade's product # / serial / state, no SFPs or MACs), `show product-key`, the part's sections trimmed to the lines that matter (full appliance: `show version`, the management VRF, `show console`, plus any section with a current fault such as `show alarm` / `show disk detail`), and one log block of at most 8 lines (the onset plus the strongest, most recent distinct messages). Its `NOTES` list missing or empty sections. Never paste a full `section` dump into the Description: use `section` only if the user asks for a specific full section. The user can ask to add or drop lines in the preview.
 
 If the verdict is **NO HARDWARE FAULT EVIDENCE** or **NO CURRENT FAULT**, say so plainly. The Issue summary will then need the user's reason for the replacement (Step 5).
 
@@ -179,11 +179,10 @@ Link:      Relates → SOL-xxxxx
 Watchers:  <names> (added manually after creation)
 Header:    Company / Shipping address code block / SolOS / [WO]   (no support level, SF case or SOL key)
 Buginfo:   http://sol-qa-01/buginfo/<KEY>  (symlink to RTinfo/<case> after creation)
-CLI:       show hardware detail (N lines) · show product-key (N) · … · <command>: not available in GD
-Evidence:  <log excerpt lines, verbatim>
-Issue summary: <draft narrative>
+Diagnostics: excerpt of show hardware detail (N lines) · show alarm (N) · … · logs (N) · <command>: not available in GD
+Issue summary: <3–5 lines, see rma-jira-fields.md §3>
 ```
-Print the header block and the Issue summary in full. **Don't print the CLI bodies** in the preview: they're copied verbatim from the GD by the script, and printing them doubles the generation time. Show them only if the user asks.
+Print the header block, the log lines and the Issue summary in full. **Don't print the other excerpt blocks** in the preview: they're copied verbatim from the GD by the script, and printing them doubles the generation time. Show them only if the user asks.
 
 **(b) What's still missing**, as a checklist. Pre-fill values from the sheet, marked `(from inventory sheet)`, and skip anything already known. Leave out the Platinum+ lines for Platinum customers.
 ```
@@ -206,7 +205,7 @@ If the reply fills in values without approving, show only the changed parts and 
 
 ## Step 6: Create, link, report
 
-Build the full Description from rma-jira-fields.md §3 **once**, at this step: the header, each CLI section in its own fenced code block copied verbatim from the `section` output (header included), the evidence block, then the Issue summary. Write `<command>: not available in GD` for missing sections.
+Build the full Description from rma-jira-fields.md §3 **once**, at this step: the header, each `excerpt` block in its own fenced code block exactly as printed (header and `[...]` markers included), then the Issue summary. Turn `NOTES` into `<command>: not available in GD` / `show product-key: empty in GD` lines.
 
 **DRAFT MODE:** output the Summary, the full Description in one copyable block, and the field list (OPS / RMA / priority / labels / Relates → SOL / watchers). Done.
 

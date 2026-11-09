@@ -68,7 +68,7 @@ Examples (synthetic):
 
 ## 3. Description template
 
-Use markdown (`contentFormat: markdown`). `[..]` = conditional. Each CLI section goes in **its own fenced code block**, copied verbatim **including the GD's `#####` header** (`# CLI command:` / `# Host:` lines). The issue summary comes **after** the CLI output.
+Use markdown (`contentFormat: markdown`). `[..]` = conditional. **Keep it short: only what Ops needs.** The diagnostics are the output of `extract_gd.py excerpt <gd> <part>`: each block in **its own fenced code block**, exactly as printed (the `#####` header and the `[...]` markers for left-out lines included). Never paste whole sections. The issue summary comes **after** the diagnostics.
 
 ````
 [Platinum+ only] Faulty appliance S/N <chassis S/N> will be replaced with appliance S/N <replacement S/N> from <Partner> <Location>
@@ -93,21 +93,26 @@ SolOS: <version from show version>
 
 ```
 #################################################################
-# CLI command: show hardware detail
+# CLI command: show hardware detail   (excerpt)
 # Host:        <hostname>
 #################################################################
-<verbatim output>
+
+<identity lines + the faulty part's lines, verbatim>
+   [...]
 ```
 
-```
-<show product-key, verbatim with header>
-```
+[show product-key, the part's trimmed sections (full appliance: show version, show ip vrf management, show console), show alarm: one block each, from `excerpt`]
 
-[Full appliance: show version, show ip vrf management, show console, each in its own block]
-[Evidence sections the user confirmed, each in its own block]
+```
+#################################################################
+# Logs: <log files>   (onset + most relevant; N of M matching lines)
+#################################################################
+
+<at most 8 verbatim log lines>
+```
 
 **Issue summary:**
-<symptoms> → <troubleshooting done> → <suspected cause> → <decision / escalation> → [replacement S/N assigned by Ops] → RCA requested: yes/no
+<3–5 short lines: what failed (one key evidence point with its date) → what was tried → decision → RCA requested: yes/no>
 [Nuances: Shipped from HQ note]
 ````
 
@@ -122,15 +127,16 @@ Per-condition rules:
 | Nuance note | Nuances only: end the Issue summary with `Shipped from HQ: part not stocked at <Partner> <Location> depot` (i) or `Shipped from HQ: <Partner> <Location> out of stock, please backfill the depot` (ii). |
 | Work order line | Platinum+ only (including Nuances where a WO exists). Uses the same partner order # as the Summary (`Flash #2491`). |
 | Priority justification | Only when Priority = High. |
-| show hardware detail | Always. If no GD is available, list the chassis serial (and what the user pasted) and say "GD not available". |
-| show product-key | Always. |
-| show version, show ip vrf management, show console | Always for a full appliance (Ops pre-configures the replacement). For parts, `SolOS:` line is enough; include the sections if the user wants. |
+| show hardware detail | Always, as an excerpt: platform, chassis product # and serial, and the faulty part's lines (PSU: power lines; disk: Disk blocks; blade: that slot's state lines; full appliance: power, disks and each blade's product # / serial / state). No SFP, MAC, FPGA or flash-card details unless that's the part. If no GD is available, list the chassis serial (and what the user pasted) and say "GD not available". |
+| show product-key | Always. If empty, write `show product-key: empty in GD`. |
+| show version, show ip vrf management, show console | Full appliance only (Ops pre-configures the replacement), trimmed to the version / load lines and the management interface and route. For parts, the `SolOS:` line is enough. |
+| Logs | One block of at most 8 verbatim lines: the onset and the strongest, most recent distinct messages. Never paste repeated lines. |
 | Missing section | Write `<command>: not available in GD` instead of inventing output. |
-| Issue summary | Narrative, factual, from the evidence findings + the user's input. Mention the exact evidence (e.g. "IPMI SEL: Power Unit: Failure detected at <time>"). |
+| Issue summary | **3–5 short lines**, factual. Line 1: what failed, with one key evidence point and its date. Line 2: what was tried / prior RMAs. Line 3: the decision (and replacement S/N if known). Last line: `RCA requested: yes/no`. Don't repeat what the diagnostics blocks already show (no lists of arrays, counts or every log line). |
 
 Reference style (redacted, from a real RMA): address block, then `show hardware detail` and `show system detail` pasted verbatim with their headers, then a narrative: "Power Unit: Failure detected" IPMI SEL lines, suspected power housing fault, escalated to a full appliance replacement, Ops assigned replacement appliance S/N, RCA requested after the faulty unit returns.
 
-Philosophy: "more is never less" as long as it is helpful. Include everything the runbook requires plus supporting evidence.
+Philosophy: Ops should see the fault at a glance. Include everything the runbook requires and the evidence that proves the fault, and leave out the rest; the full GD is in Buginfo.
 
 ## 4. Field values
 
