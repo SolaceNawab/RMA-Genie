@@ -27,7 +27,7 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 - **Python 3** (standard library only). It's used by `scripts/extract_gd.py`.
 - **The Shipment Inventory Record**, for the built-in lookup: a OneDrive-synced copy (Windows or Mac), or on Windows a signed-in desktop Excel. You can also set the plugin's `inventory_path` / `inventory_url` options. On a Mac, see the repo README's macOS setup (OneDrive sync plus Full Disk Access). Without the sheet, RMA Genie asks for the tier and case details by hand.
 - **The Platinum Plus Maintenance sheet** (`PlatinumPlusMaintenance.xlsx`, same *Ship Spreadsheet* folder, so the same OneDrive sync covers it), or the plugin's `ppm_path` option. It's only read for Platinum+ customers. It's read with Python on every platform (there's no Excel fetch), so on Windows it must be synced too. Without it, RMA Genie uses the inventory sheet's sub-level and asks for the rest.
-- **Optional: [support-ticket-lookup](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-ticket-lookup)** from support-marketplace, with its `~/.solace_token` set up (see its README). For Flash / Maintech RMAs, RMA Genie uses it to read the partner order # from the Salesforce case's Work Orders section (topmost entry) and asks you to confirm it. Without it, RMA Genie just asks for the order #.
+- **Optional: the [Salesforce CLI](https://developer.salesforce.com/tools/salesforcecli)** (`sf`), signed in once: `npm install -g @salesforce/cli` (needs Node, e.g. `brew install node`), then `sf org login web --alias solace --instance-url https://solacecorp.my.salesforce.com --set-default` (browser SSO). For Flash / Maintech RMAs, RMA Genie runs a read-only query for the case's Work Orders (`Work_Order__c`), takes the topmost order # and asks you to confirm it. Without `sf`, RMA Genie just asks for the order #.
 - **An Atlassian MCP connection** to `sol-jira.atlassian.net`. Either of the following works:
   - **The Atlassian MCP server, added directly.** This works with any Claude Code login, including gateway/API-token setups:
     ```
@@ -106,4 +106,4 @@ python3 scripts/extract_gd.py section   <gd-folder> "show hardware detail" "show
 - **The PSU part number** doesn't appear in `show hardware detail`, so the skill asks you for it.
 - **`evidence-guide.md` is a draft.** Refine it as the team sees real cases.
 - **Phase 2 (rest):** the Shipment Inventory Record lookup is built in. Still to do: the Platinum Plus Maintenance sheet (sub-level, partner depot, spare quantity).
-- **Later:** support-log-buddy findings, a post-install update mode (Step 6.2), and pre-filling details from Salesforce through support-ticket-lookup.
+- **Later:** support-log-buddy findings, a post-install update mode (Step 6.2), and pre-filling more case details from Salesforce (`sf`).
