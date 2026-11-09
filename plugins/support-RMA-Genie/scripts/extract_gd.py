@@ -29,6 +29,15 @@ Subcommands (all output goes to stdout; this script never writes files):
       <part> is one of: psu adb nab sfp hba disk fan full. Prints FINDINGS,
       SUGGESTED SECTIONS and MISSING as plain text, with exact quoted lines.
 
+  excerpt <gd-path> <part> [max-log-lines]
+      What goes in the RMA Description: only the lines Ops needs, copied
+      verbatim, with "[...]" where lines were left out. Identity + the faulty
+      part's block from show hardware detail, show product-key, the part's
+      sections trimmed to the relevant lines (full appliance: show version,
+      management VRF, show console), show alarm, and up to max-log-lines
+      (default 8) log lines: the onset plus the strongest / most recent
+      distinct hardware messages. Ends with NOTES for missing/empty sections.
+
 <gd-path> may be an extracted GD folder or the diagnostics file itself. For a
 folder the lookup order is: <folder>/cli-diagnostics.txt,
 <folder>/<folder.name>/cli-diagnostics.txt, then gdh-diagnostics.txt at the same
@@ -673,6 +682,274 @@ def cmd_scan(path, part):
     return 0
 
 
+# --------------------------------------------------------------------------
+# Excerpt: only the lines an RMA needs (for the Jira Description)
+# --------------------------------------------------------------------------
+
+GAP = "   [...]"
+HW_ID_KEYS = ("platform", "chassis product #", "chassis serial")
+HW_POWER_KEYS = ("power redundancy configuration", "operational power supplies")
+BLADE_KEYS = {
+    "adb": ("product #", "serial #", "operational state", "flash card state",
+            "power module state", "mate link port 1", "mate link port 2", "errors",
+            "fatal errors", "charge level", "crc errors port 1", "crc errors port 2"),
+    "nab": ("product #", "serial #", "operational state"),
+    "hba": ("product #", "serial #", "model name", "operational state", "link state",
+            "link speed", "port name", "link failure count", "loss of signal count",
+            "loss of sync count", "invalid crc count", "state", "wwn"),
+    "full": ("product #", "serial #", "operational state"),
+}
+BLADE_TYPE = {"adb": "assured delivery", "nab": "network acceleration", "hba": "host bus adapter"}
+EXCERPT_SECTIONS = {
+    "psu": ["show environment"],
+    "fan": ["show environment"],
+    "disk": ["show disk detail", "show alarm"],
+    "adb": ["show message-spool detail", "show alarm"],
+    "nab": ["show interface detail", "show alarm"],
+    "sfp": ["show interface detail", "show alarm"],
+    "hba": ["show alarm"],
+    "full": ["show version", "show ip vrf management", "show console", "show alarm"],
+}
+# Log lines that are a direct hardware verdict, picked before plain recency.
+STRONG_RE = re.compile(
+    r"disabling device|disk failure|reset failed|failure detected|POWER_MODULE_DOWN|"
+    r"medium error|uncorrect|kernel panic|machine check|CRITICAL_HARDWARE|fatal error", re.I)
+LEAD_RE = re.compile(
+    r"^(?:\d{4}-\d\d-\d\dT[\d:.]+(?:[+-]\d\d:?\d\d|Z)?|[A-Z][a-z]{2}\s+\d+\s+\d\d:\d\d:\d\d)"
+    r"\s+(?:<[^>]+>\s+)?\S+\s+")
+MONTHS = {m: i for i, m in enumerate(
+    "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
+
+
+def mark_gaps(body_lines, keep):
+    """Kept lines verbatim, with GAP between non-adjacent runs."""
+    out, last = [], None
+    for i in sorted(keep):
+        if last is not None and any(l.strip() for l in body_lines[last + 1:i]):
+            out.append(GAP)
+        out.append(body_lines[i])
+        last = i
+    return out
+
+
+def block_end(lines, i):
+    base = indent_of(lines[i])
+    j = i + 1
+    while j < len(lines) and (not lines[j].strip() or indent_of(lines[j]) > base):
+        if not lines[j].strip() and (j + 1 >= len(lines) or indent_of(lines[j + 1]) <= base):
+            break
+        j += 1
+    return j
+
+
+def hw_excerpt(body, part):
+    keep = set()
+    slot_re = re.compile(r"^\s*Slot\s+\d+/\d+\s*:\s*(.*)$", re.I)
+    i = 0
+    while i < len(body):
+        line = body[i]
+        k, v = kv(line.strip())
+        kl = (k or "").lower()
+        m = slot_re.match(line)
+        if m:
+            desc = m.group(1).strip().lower()
+            j = block_end(body, i)
+            want = part == "full" and desc not in ("empty", "") and not desc.startswith("in use") \
+                or BLADE_TYPE.get(part, "#") in desc or (part == "sfp" and desc not in ("empty", ""))
+            if want:
+                keep.add(i)
+                for x in range(i + 1, j):
+                    s = body[x].strip()
+                    bk, _ = kv(s)
+                    if part == "sfp":
+                        if re.match(r"SFP\b", s) or (bk or "").lower() in (
+                                "product #", "media type", "part number", "serial #",
+                                "tx power", "rx power"):
+                            keep.add(x)
+                    elif bk and bk.lower() in BLADE_KEYS.get(part, ()):
+                        if part in ("full", "nab", "adb") and indent_of(body[x]) > indent_of(body[i]) + 2:
+                            continue  # nested SFP / flash-card / FC-port lines
+                        keep.add(x)
+                    elif part == "hba" and re.match(r"Fibre-Channel \d", s):
+                        keep.add(x)
+            i = j
+            continue
+        if kl in HW_ID_KEYS:
+            keep.add(i)
+        elif part in ("psu", "full") and (kl in HW_POWER_KEYS or re.match(r"power module \d+$", kl)):
+            keep.add(i)
+        elif part in ("disk", "full") and re.match(r"disk \d+$", kl):
+            for x in range(i, block_end(body, i)):
+                if body[x].strip():
+                    keep.add(x)
+        i += 1
+    return mark_gaps(body, keep)
+
+
+def section_excerpt(name, body, part):
+    """Relevant lines of one section, or [] if nothing worth showing."""
+    idx = [i for i, l in enumerate(body) if l.strip()]
+    if name == "show disk detail":
+        start = next((i for i, l in enumerate(body) if l.startswith("Personalities")), None)
+        keep = [i for i in idx if start is not None and i >= start] or idx
+        return mark_gaps(body, keep)
+    if name == "show alarm":
+        keep = [i for i in idx if not body[i].strip().lower().startswith("alarm display")]
+        if any("no current alarms" in body[i].lower() for i in keep):
+            return []
+        return mark_gaps(body, keep)
+    if name == "show environment":
+        if part in ("psu", "fan"):
+            head = re.compile(r"^\s*(Power system redundancy|Power module \d)" if part == "psu"
+                              else r"^\s*(Fan speed|Temperature)", re.I)
+            keep, on = [], False
+            for i, l in enumerate(body):
+                if re.match(r"^\s*\S.*:\s*$", l):
+                    on = bool(head.match(l))
+                if on and l.strip():
+                    keep.append(i)
+            return mark_gaps(body, keep)
+        bad = [i for i in idx if re.search(r"\b(fail\w*|critical|warning|not ok)\b", body[i], re.I)]
+        return mark_gaps(body, bad)
+    if name == "show version":
+        keep = [i for i in idx if re.search(r"Version \d|Current load|Backout load", body[i])]
+        return mark_gaps(body, keep)
+    if name == "show ip vrf management":
+        keep = [i for i in idx if not body[i].lstrip().startswith(("Status Flags", "Status Values"))]
+        return mark_gaps(body, keep)
+    if name in ("show interface detail", "show message-spool detail"):
+        # Problem lines only, each with the interface / block it belongs to.
+        keep, owner = [], None
+        for i in idx:
+            l = body[i]
+            if not l.startswith((" ", "\t")):
+                owner = i
+            if re.search(r"\b(down|fail\w*|error|not ready|offline)\b", l, re.I) and \
+                    not re.search(r":\s+(0|N/A|none)\s*$|down\(shutdown\)", l, re.I):
+                if owner is not None and owner not in keep:
+                    keep.append(owner)
+                keep.append(i)
+        return mark_gaps(body, keep[:16])
+    return mark_gaps(body, idx)
+
+
+def ts_key(line, ref_year, ref_month):
+    m = re.match(r"(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)", line)
+    if m:
+        return tuple(int(x) for x in m.groups())
+    m = re.match(r"([A-Z][a-z]{2})\s+(\d+)\s+(\d\d):(\d\d):(\d\d)", line)
+    if m and m.group(1) in MONTHS:
+        mon = MONTHS[m.group(1)]
+        year = ref_year - 1 if ref_month and mon > ref_month else ref_year
+        return (year, mon) + tuple(int(x) for x in m.groups()[1:])
+    return (0,)
+
+
+def log_excerpt(gd_dir, part, max_lines):
+    m = re.search(r"(\d{4})-(\d\d)-\d\dT", gd_dir)
+    ref_year, ref_month = (int(m.group(1)), int(m.group(2))) if m else (time.localtime().tm_year, 0)
+    groups = {}
+    found = scan_logs(gd_dir, part)
+    for count, first, last, rel in found:
+        if re.search(r"SHUTDOWN_INITIATED|unexpected (?:restart|reboot)|VPN_BRIDGING|"
+                     r"_CLIENT_|CLUSTER_LINK|NEIGHBOR_", first):
+            continue  # context or software-level link events, not hardware evidence
+        key = re.sub(r"\d+", "#", MASK_RE.sub("#", LEAD_RE.sub("", first, count=1))).strip()
+        g = groups.setdefault(key, {"count": 0, "first": first, "last": last, "logs": set()})
+        g["count"] += count
+        g["logs"].add(rel.rsplit("/", 1)[-1])
+        if ts_key(first, ref_year, ref_month) < ts_key(g["first"], ref_year, ref_month):
+            g["first"] = first
+        if ts_key(last, ref_year, ref_month) > ts_key(g["last"], ref_year, ref_month):
+            g["last"] = last
+    if not groups:
+        return [], 0, set()
+    tk = lambda l: ts_key(l, ref_year, ref_month)
+    gs = list(groups.values())
+    strong = [g for g in gs if STRONG_RE.search(g["first"])]
+    onset = min(strong or gs, key=lambda g: tk(g["first"]))
+    ranked = sorted(gs, key=lambda g: (not STRONG_RE.search(g["last"]), tuple(-x for x in tk(g["last"]))))
+    picked, lines = [], set()
+    for g in ranked:
+        if len(lines) >= max_lines - 1:
+            break
+        picked.append(g)
+        lines.add(g["last"])
+    lines.add(onset["first"])
+    logs = set().union(*(g["logs"] for g in picked + [onset]))
+    total = sum(g["count"] for g in gs)
+    return sorted(lines, key=tk), total, logs
+
+
+def cmd_excerpt(path, part, max_logs=8):
+    part = part.lower()
+    if part not in PART_SECTIONS:
+        sys.stderr.write("unknown part '%s'; use one of: %s\n"
+                         % (part, " ".join(sorted(PART_SECTIONS))))
+        return 1
+    f, _, sections = load(path)
+    by_key = {}
+    for s in sections:
+        by_key.setdefault(canonical(s.name), s)
+    host = next((s.host for s in sections if s.host), "") or ""
+    sep = "#" * 65
+    blocks, notes = [], []
+
+    def emit(cmd, lines, label="(excerpt)"):
+        while lines and not lines[-1].strip():
+            lines.pop()
+        blocks.append("\n".join([sep, "# CLI command: %s   %s" % (cmd, label),
+                                 "# Host:        %s" % host, sep, ""] + lines))
+
+    hw = by_key.get("show hardware detail")
+    if hw:
+        emit("show hardware detail", hw_excerpt(hw.body_lines, part))
+    else:
+        notes.append("show hardware detail: not available in GD")
+    pk = by_key.get("show product-key")
+    if pk is None:
+        notes.append("show product-key: not available in GD")
+    elif not any(l.strip() for l in pk.body_lines):
+        notes.append("show product-key: empty in GD")
+    else:
+        emit("show product-key", [l for l in pk.body_lines if l.strip()], "")
+    names = list(EXCERPT_SECTIONS[part])
+    if part == "full":
+        fault, _ = health_checks(by_key)
+        for sec_name, _ in fault:
+            if sec_name not in names and sec_name != "show hardware detail":
+                names.append(sec_name)
+    for name in names:
+        sec = by_key.get(name)
+        if sec is None:
+            if part == "full" and name in REQUIRED_SECTIONS:
+                notes.append("%s: not available in GD" % name)
+            continue
+        lines = section_excerpt(name, sec.body_lines, part)
+        if lines:
+            emit(name, lines)
+    gd_dir = os.path.dirname(os.path.abspath(f))
+    log_part = part
+    if part == "full":
+        fault, _ = health_checks(by_key)
+        text = " ".join(l for _, l in fault).lower()
+        log_part = next((p for p, rx in (("disk", r"disk|\[u*_"), ("psu", r"power module"),
+                                         ("adb", r"flash card|mate link|power module state"),
+                                         ("fan", r"fan|temp")) if re.search(rx, text)), "full")
+    log_lines, total, logs = log_excerpt(gd_dir, log_part, max_logs)
+    if log_lines:
+        blocks.append("\n".join([sep, "# Logs: %s   (onset + most relevant; %d of %d matching lines)"
+                                 % (", ".join(sorted(logs)), len(log_lines), total), sep, ""]
+                                + log_lines))
+    print("\n\n".join(blocks))
+    if notes:
+        print()
+        print("NOTES")
+        for n in notes:
+            print("  - %s" % n)
+    return 0
+
+
 def hw_identity(diag_file):
     """(hostname, chassis_serial, chassis_product) from a diagnostics file,
     parsing only the show hardware detail section."""
@@ -728,7 +1005,8 @@ def usage():
         "  extract_gd.py sections <gd-path>\n"
         "  extract_gd.py section <gd-path> \"<cmd>\" [\"<cmd>\" ...]\n"
         "  extract_gd.py discover [<dir> ...]\n"
-        "  extract_gd.py scan <gd-path> <psu|adb|nab|sfp|hba|disk|fan|full>\n")
+        "  extract_gd.py scan <gd-path> <psu|adb|nab|sfp|hba|disk|fan|full>\n"
+        "  extract_gd.py excerpt <gd-path> <part> [max-log-lines]\n")
     return 1
 
 
@@ -746,6 +1024,8 @@ def main(argv):
         return cmd_section(path, argv[3:])
     if sub == "scan" and len(argv) == 4:
         return cmd_scan(path, argv[3])
+    if sub == "excerpt" and len(argv) in (4, 5):
+        return cmd_excerpt(path, argv[3], int(argv[4]) if len(argv) == 5 else 8)
     return usage()
 
 

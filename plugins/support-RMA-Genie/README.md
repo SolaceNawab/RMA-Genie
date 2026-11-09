@@ -96,6 +96,7 @@ retired; this is now the only copy.
 python3 scripts/extract_gd.py discover [<dir> ...]                      # extracted GDs (with serials) + archives, newest first
 python3 scripts/extract_gd.py inventory <gd-folder>                     # JSON summary
 python3 scripts/extract_gd.py scan      <gd-folder> <psu|adb|nab|sfp|hba|disk|fan|full>   # evidence scan
+python3 scripts/extract_gd.py excerpt   <gd-folder> <part> [max-log-lines]   # trimmed diagnostics for the Description
 python3 scripts/extract_gd.py sections  <gd-folder>                     # list available CLI sections
 python3 scripts/extract_gd.py section   <gd-folder> "show hardware detail" "show product-key"
 ```
