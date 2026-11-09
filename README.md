@@ -82,7 +82,23 @@ Pick one:
   SharePoint through your signed-in desktop Excel. This takes about 30–40 s and is cached for
   10 minutes.
 
-### 5. Check it works
+### 5. Connect Salesforce (optional, recommended)
+
+RMA Genie reads the Salesforce case (subject, status, account, production flag, and the
+Flash / Maintech **Part Delivery** work order #) with the Salesforce CLI. It only reads;
+it never changes the case. Without it, RMA Genie asks you for these by hand.
+
+1. Install [Node.js LTS](https://nodejs.org) (tick **Add to PATH**), then in a new terminal:
+   `npm install -g @salesforce/cli`
+2. Sign in once (a browser opens; use your Solace SSO):
+   ```
+   sf org login web --alias solace --instance-url https://solacecorp.my.salesforce.com --set-default
+   ```
+3. Check it: `sf data query -q "SELECT CaseNumber, Subject FROM Case WHERE CaseNumber = '<a case #>'"`
+
+> RMA Genie no longer uses support-ticket-lookup / SolaceChat (no longer maintained).
+
+### 6. Check it works
 
 ```
 /support-rma-genie:inventory <serial>
@@ -181,7 +197,24 @@ decrypt-cms signs in to **Vault** and has **AWS KMS** decrypt the bundle, so you
 needs Vault access. No Mac build? Decrypt on a dev server, copy the **extracted folder** to
 `~/Downloads`, and RMA Genie will pick it up.
 
-### 7. Check it works
+### 7. Connect Salesforce (optional, recommended)
+
+RMA Genie reads the Salesforce case (subject, status, account, production flag, and the
+Flash / Maintech **Part Delivery** work order #) with the Salesforce CLI. It only reads;
+it never changes the case. Without it, RMA Genie asks you for these by hand.
+
+```
+brew install node
+npm install -g @salesforce/cli
+sf org login web --alias solace --instance-url https://solacecorp.my.salesforce.com --set-default
+```
+
+The last command opens a browser: sign in with your Solace SSO. Check it with
+`sf data query -q "SELECT CaseNumber, Subject FROM Case WHERE CaseNumber = '<a case #>'"`.
+
+> RMA Genie no longer uses support-ticket-lookup / SolaceChat (no longer maintained).
+
+### 8. Check it works
 
 ```
 /support-rma-genie:inventory <serial>
@@ -197,6 +230,7 @@ the source shown as "Live sheet (OneDrive sync …)".
 ```
 /support-rma-genie:raise                    # asks for the serial and walks you through the RMA
 /support-rma-genie:raise S009004123         # serial given up front
+/support-rma-genie:raise S009004123 00104079   # serial + SF case # (reads the case from Salesforce)
 /support-rma-genie:inventory S009004123     # inventory lookup only
 /support-rma-genie:inventory                # list available serials (takes several minutes)
 ```
@@ -249,3 +283,6 @@ If you still have either installed:
 | decrypt-cms runs but Vault / AWS access is refused | An account access issue, not your machine. Check it works on a dev server; request Vault access if not. |
 | `No module named 'requests'` | Install `requests` (step 2 of your OS setup). |
 | Jira tools missing | Run `/mcp` and make sure **atlassian** is connected and authenticated. |
+| `sf_case: Salesforce CLI (sf) not installed` | Install it ([Windows step 5](#5-connect-salesforce-optional-recommended) / [macOS step 7](#7-connect-salesforce-optional-recommended)). RMA Genie still works; it asks for the case details instead. |
+| `No default environment found` / `expired access/refresh token` from `sf` | Sign in again: `sf org login web --alias solace --instance-url https://solacecorp.my.salesforce.com --set-default`. |
+| `OAUTH_APPROVAL_ERROR` / app blocked on `sf org login web` | Your org blocks unapproved connected apps; ask a Salesforce admin to approve the Salesforce CLI. |
