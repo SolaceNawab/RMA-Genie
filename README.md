@@ -4,6 +4,10 @@ Claude Code plugins for Solace Technical Support. The main one is **RMA Genie**:
 appliance serial in the Shipment Inventory Record, reads the customer's gather-diagnostics, and
 raises a standardized OPS RMA ticket in Jira.
 
+> **RMA Genie has moved to [SolaceDev/support-marketplace](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-rma-genie)**
+> (`plugins/support-rma-genie`), which is now its source of truth. This repo keeps a **backup copy**
+> from the hackathon. Make changes in support-marketplace; this copy is only updated now and then.
+
 - [Plugins](#plugins)
 - [Windows setup](#windows-setup)
 - [macOS setup](#macos-setup)
@@ -47,9 +51,8 @@ In Claude Code:
 /plugin install support-gd-handler@support-marketplace
 ```
 
-RMA Genie is listed in the team's support-marketplace, which installs it from this repo. You can
-also install it straight from this repo's own marketplace (`/plugin marketplace add SolaceNawab/RMA-Genie`,
-then `/plugin install support-rma-genie@coop-support-hack`). Install it from only one of the two.
+RMA Genie now lives in the team's support-marketplace. This repo's own marketplace
+(`support-rma-genie@coop-support-hack`) is a backup; install from only one of the two.
 
 **support-gd-handler** ships `decrypt-cms.exe` (used to decrypt gather-diagnostics) and the
 filedrop fetcher. Install its Python dependency once, in Git Bash:
@@ -138,9 +141,8 @@ In Claude Code:
 /plugin install support-gd-handler@support-marketplace
 ```
 
-RMA Genie is listed in the team's support-marketplace, which installs it from this repo. You can
-also install it straight from this repo's own marketplace (`/plugin marketplace add SolaceNawab/RMA-Genie`,
-then `/plugin install support-rma-genie@coop-support-hack`). Install it from only one of the two.
+RMA Genie now lives in the team's support-marketplace. This repo's own marketplace
+(`support-rma-genie@coop-support-hack`) is a backup; install from only one of the two.
 
 Install `requests` for the filedrop fetcher. Homebrew Python blocks a plain `pip install`
 (PEP 668), so install it for your user:
