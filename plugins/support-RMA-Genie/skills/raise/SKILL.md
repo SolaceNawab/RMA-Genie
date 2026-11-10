@@ -60,7 +60,7 @@ Keep this in chat, one line per step, ticking as you go:
    X="${CLAUDE_PLUGIN_ROOT}/scripts/extract_gd.py"
    INV="${CLAUDE_PLUGIN_ROOT}/scripts/inventory.sh"
    echo "PY=$PY"
-   SD="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie-coop-support-hack}"
+   SD="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie}"
    INV_JSON=$(bash "$INV" lookup "<serial>" --path '${user_config.inventory_path}' --url '${user_config.inventory_url}' --state-dir "$SD"); rc=$?
    printf '%s\n' "$INV_JSON"; echo "inventory_exit=$rc"
    # Platinum Plus Maintenance sheet: ONLY for Platinum+ customers

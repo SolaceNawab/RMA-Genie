@@ -4,6 +4,10 @@ Claude Code plugins for Solace Technical Support. The main one is **RMA Genie**:
 appliance serial in the Shipment Inventory Record, reads the customer's gather-diagnostics, and
 raises a standardized OPS RMA ticket in Jira.
 
+> **RMA Genie has moved to [SolaceDev/support-marketplace](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-rma-genie)**
+> (`plugins/support-rma-genie`), which is now its source of truth. This repo keeps a **backup copy**
+> from the hackathon. Make changes in support-marketplace; this copy is only updated now and then.
+
 - [Plugins](#plugins)
 - [Windows setup](#windows-setup)
 - [macOS setup](#macos-setup)
@@ -42,12 +46,13 @@ above; the plugins also try `python` and `py`.
 In Claude Code:
 
 ```
-/plugin marketplace add SolaceNawab/RMA-Genie
-/plugin install support-rma-genie@coop-support-hack
-
 /plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-rma-genie@support-marketplace
 /plugin install support-gd-handler@support-marketplace
 ```
+
+RMA Genie now lives in the team's support-marketplace. This repo's own marketplace
+(`support-rma-genie@coop-support-hack`) is a backup; install from only one of the two.
 
 **support-gd-handler** ships `decrypt-cms.exe` (used to decrypt gather-diagnostics) and the
 filedrop fetcher. Install its Python dependency once, in Git Bash:
@@ -131,12 +136,13 @@ One-time steps. Tested on macOS (Apple Silicon) with Homebrew Python 3.14.
 In Claude Code:
 
 ```
-/plugin marketplace add SolaceNawab/RMA-Genie
-/plugin install support-rma-genie@coop-support-hack
-
 /plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-rma-genie@support-marketplace
 /plugin install support-gd-handler@support-marketplace
 ```
+
+RMA Genie now lives in the team's support-marketplace. This repo's own marketplace
+(`support-rma-genie@coop-support-hack`) is a backup; install from only one of the two.
 
 Install `requests` for the filedrop fetcher. Homebrew Python blocks a plain `pip install`
 (PEP 668), so install it for your user:
@@ -244,7 +250,17 @@ an archive for you. It always shows a preview before creating anything in Jira. 
 ## Updating
 
 ```
-/plugin marketplace update coop-support-hack
+/plugin marketplace update support-marketplace     # or coop-support-hack, whichever you installed from
+/reload-plugins
+```
+
+**Moving to support-marketplace:** if you installed RMA Genie from `coop-support-hack`, switch to
+the team marketplace (same plugin, same commands):
+
+```
+/plugin uninstall support-rma-genie@coop-support-hack
+/plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-rma-genie@support-marketplace
 /reload-plugins
 ```
 

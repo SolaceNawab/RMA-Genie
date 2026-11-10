@@ -39,9 +39,12 @@ Customer details (names, addresses, phone numbers) are never written to disk. Th
 ## Installation
 
 ```
-/plugin marketplace add SolaceNawab/RMA-Genie
-/plugin install support-rma-genie@coop-support-hack
+/plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-rma-genie@support-marketplace
 ```
+
+This folder is a **backup copy**. The plugin's source of truth is
+[SolaceDev/support-marketplace](https://github.com/SolaceDev/support-marketplace/tree/main/plugins/support-rma-genie).
 
 ## Usage
 

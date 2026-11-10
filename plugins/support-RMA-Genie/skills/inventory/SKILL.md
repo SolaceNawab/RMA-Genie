@@ -31,7 +31,7 @@ Pick the mode from `$ARGUMENTS`:
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/inventory.sh lookup $ARGUMENTS \
   --path '${user_config.inventory_path}' \
   --url '${user_config.inventory_url}' \
-  --state-dir "${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie-coop-support-hack}"
+  --state-dir "${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie}"
 ```
 
 It takes a few seconds; there's no need to run it in the background. Add
@@ -75,7 +75,7 @@ columns unless the user asks.
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/inventory.sh \
   --path '${user_config.inventory_path}' \
   --url '${user_config.inventory_url}' \
-  --state-dir "${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie-coop-support-hack}" \
+  --state-dir "${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/support-rma-genie}" \
   -AvailableOnly
 ```
 
