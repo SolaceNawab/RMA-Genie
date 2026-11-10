@@ -42,12 +42,14 @@ above; the plugins also try `python` and `py`.
 In Claude Code:
 
 ```
-/plugin marketplace add SolaceNawab/RMA-Genie
-/plugin install support-rma-genie@coop-support-hack
-
 /plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-rma-genie@support-marketplace
 /plugin install support-gd-handler@support-marketplace
 ```
+
+RMA Genie is listed in the team's support-marketplace, which installs it from this repo. You can
+also install it straight from this repo's own marketplace (`/plugin marketplace add SolaceNawab/RMA-Genie`,
+then `/plugin install support-rma-genie@coop-support-hack`). Install it from only one of the two.
 
 **support-gd-handler** ships `decrypt-cms.exe` (used to decrypt gather-diagnostics) and the
 filedrop fetcher. Install its Python dependency once, in Git Bash:
@@ -131,12 +133,14 @@ One-time steps. Tested on macOS (Apple Silicon) with Homebrew Python 3.14.
 In Claude Code:
 
 ```
-/plugin marketplace add SolaceNawab/RMA-Genie
-/plugin install support-rma-genie@coop-support-hack
-
 /plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-rma-genie@support-marketplace
 /plugin install support-gd-handler@support-marketplace
 ```
+
+RMA Genie is listed in the team's support-marketplace, which installs it from this repo. You can
+also install it straight from this repo's own marketplace (`/plugin marketplace add SolaceNawab/RMA-Genie`,
+then `/plugin install support-rma-genie@coop-support-hack`). Install it from only one of the two.
 
 Install `requests` for the filedrop fetcher. Homebrew Python blocks a plain `pip install`
 (PEP 668), so install it for your user:
@@ -244,7 +248,17 @@ an archive for you. It always shows a preview before creating anything in Jira. 
 ## Updating
 
 ```
-/plugin marketplace update coop-support-hack
+/plugin marketplace update support-marketplace     # or coop-support-hack, whichever you installed from
+/reload-plugins
+```
+
+**Moving to support-marketplace:** if you installed RMA Genie from `coop-support-hack`, switch to
+the team marketplace (same plugin, same commands):
+
+```
+/plugin uninstall support-rma-genie@coop-support-hack
+/plugin marketplace add SolaceDev/support-marketplace
+/plugin install support-rma-genie@support-marketplace
 /reload-plugins
 ```
 
