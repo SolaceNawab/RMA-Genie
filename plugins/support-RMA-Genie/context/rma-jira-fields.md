@@ -157,7 +157,7 @@ Philosophy: Ops should see the fault at a glance. Include everything the runbook
 
 Duplicate-check JQL: `project = OPS AND issuetype = RMA AND text ~ "<chassis serial>" ORDER BY created DESC` (fields: summary, status, created; maxResults ~10).
 
-**Buginfo symlink** (only on a host where `/home/public/RND/rnd_buginfo` exists, i.e. the Linux dev server): link the case's RTinfo folder under the new OPS key, then set the BugInfo URL field.
+**Buginfo symlink:** link the case's RTinfo folder under the new OPS key, then set the BugInfo URL field. `scripts/buginfo_link.sh` does it directly where `/home/public/RND/rnd_buginfo` is mounted (Linux dev servers), and otherwise over SSH to the `buginfo_ssh_host` plugin option (any dev server that mounts the share, with key login). The command it runs:
 
 ```bash
 ln -s /home/public/RND/rnd_buginfo/RTinfo/<sf-case-number> /home/public/RND/rnd_buginfo/buginfo/<KEY>

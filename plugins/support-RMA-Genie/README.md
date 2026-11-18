@@ -80,6 +80,7 @@ support-rma-genie/   (folder: plugins/support-RMA-Genie)
 │   ├── extract_gd.py          # parses cli-diagnostics.txt / gdh-diagnostics.txt; prints to stdout only
 │   ├── inventory.sh           # Shipment Inventory Record entry point: PowerShell on Windows, inventory.py elsewhere
 │   ├── inventory.py           # macOS / Linux backend (Python 3, stdlib)
+│   ├── buginfo_link.sh        # buginfo/<OPS key> -> RTinfo/<case> link, locally or over SSH
 │   └── lookup_serial.ps1, read_inventory.ps1, inventory_source.ps1   # Windows backend
 ├── tests/fixture_inventory.xlsx (+ make_fixture.ps1)                 # fake inventory data for the strike cases
 └── skills/

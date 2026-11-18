@@ -1,7 +1,7 @@
 {
   "name": "support-rma-genie",
   "displayName": "RMA Genie",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "RMA Genie: look up serials in the live Shipment Inventory Record and raise standardized OPS RMA Jira tickets for Solace appliance hardware replacements from gather-diagnostics.",
   "author": {
     "name": "Jamil Wansa"
@@ -33,6 +33,11 @@
       "type": "file",
       "title": "Platinum Plus Maintenance (.xlsx)",
       "description": "Local path of the OneDrive-synced 'PlatinumPlusMaintenance.xlsx' (same Ship Spreadsheet folder). Leave empty to auto-discover. Only read for Platinum+ customers."
+    },
+    "buginfo_ssh_host": {
+      "type": "string",
+      "title": "Dev server for Buginfo links (SSH)",
+      "description": "user@host of a Linux dev server that mounts /home/public (e.g. jwansa@dev2-185.sol-local). Used to create the buginfo/<OPS key> link when you run Claude Code on a Mac or PC. Needs key login without a password prompt. Leave empty on a dev server."
     }
   }
 }

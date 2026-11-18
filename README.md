@@ -223,6 +223,42 @@ The last command opens a browser: sign in with your Solace SSO. Check it with
 You should get the customer, tier, MTCE eligibility, chassis, destination city and address, with
 the source shown as "Live sheet (OneDrive sync …)".
 
+### 9. Link Buginfo from the Mac (optional)
+
+After creating the RMA, RMA Genie links `buginfo/<OPS key>` to the case's RTinfo folder and sets
+the BugInfo URL. The Mac doesn't mount `/home/public`, so it does this over SSH on a dev server.
+Without this step it gives you the command to run by hand.
+
+```
+ssh-keygen -t ed25519                     # press Enter for the default file; skip if you already have a key
+/usr/bin/ssh-add --apple-use-keychain ~/.ssh/id_ed25519   # only if you set a passphrase
+ssh-copy-id <dev-user>@dev2-185.sol-local
+```
+
+Use Apple's `/usr/bin/ssh-add`: a Homebrew `ssh-add` rejects `--apple-use-keychain`. If you set a
+passphrase, also add this to `~/.ssh/config` so the Keychain is used after a reboot:
+
+```
+Host *
+  IgnoreUnknown UseKeychain
+  UseKeychain yes
+  AddKeysToAgent yes
+```
+
+Check it prints without any prompt:
+
+```
+ssh -o BatchMode=yes <dev-user>@dev2-185.sol-local 'ls -ld /home/public/RND/rnd_buginfo/buginfo'
+```
+
+Then set the plugin option **Dev server for Buginfo links (SSH)** (`buginfo_ssh_host`) to
+`<dev-user>@dev2-185.sol-local` in `/plugin` → support-rma-genie → configure. Any dev server that
+mounts `/home/public` works. RMA Genie calls `/usr/bin/ssh`, so the Keychain is used even when a
+Homebrew `ssh` comes first in `PATH`.
+
+On Windows the same works from Git Bash (`ssh-keygen`, then `ssh-copy-id`, or append
+`~/.ssh/id_ed25519.pub` to `~/.ssh/authorized_keys` on the dev server).
+
 ---
 
 ## Usage
