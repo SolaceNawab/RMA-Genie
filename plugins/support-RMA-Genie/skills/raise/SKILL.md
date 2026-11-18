@@ -211,14 +211,12 @@ Build the full Description from rma-jira-fields.md §3 **once**, at this step: t
 
 **MCP mode**, in one turn where possible:
 1. `createJiraIssue`: cloudId as above, `projectKey: OPS`, `issueTypeName: RMA`, `summary`, `description`, `contentFormat: markdown`, `additional_fields: {"priority": {"name": "<Medium|High>"}}`, plus `"labels": ["Flash"]` or `["Maintech"]` for Platinum+.
-2. Then, in parallel: `createIssueLink` (type `Relates`, new OPS key ↔ the SOL key) and one Bash call for the buginfo symlink (skip it if the case number is `not provided`):
+2. Then, in parallel: `createIssueLink` (type `Relates`, new OPS key ↔ the SOL key) and one Bash call for the buginfo symlink (skip it if the case number is `not provided`). The script links locally on a dev server, and otherwise over SSH to the `buginfo_ssh_host` option (e.g. from a Mac):
    ```bash
-   B=/home/public/RND/rnd_buginfo; C="<sf-case-number>"; K="<KEY>"
-   if [ ! -d "$B/buginfo" ]; then echo "buginfo: not on the dev server, skipped"
-   elif [ -e "$B/buginfo/$K" ] || [ -L "$B/buginfo/$K" ]; then ls -l "$B/buginfo/$K"; echo "buginfo: already exists"
-   else [ -d "$B/RTinfo/$C" ] || echo "warning: RTinfo/$C does not exist yet"; ln -s "$B/RTinfo/$C" "$B/buginfo/$K" && ls -l "$B/buginfo/$K"; fi
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/buginfo_link.sh" "<sf-case-number>" "<KEY>" --host '${user_config.buginfo_ssh_host}'; echo "buginfo_exit=$?"
    ```
-3. If the symlink was created (or already points at `RTinfo/<case>`): `editJiraIssue` with `fields: {"customfield_10980": "http://sol-qa-01/buginfo/<KEY>"}` (BugInfo URL). If the update fails, show the error and give the URL to the user to paste under Details. If the symlink was skipped or points elsewhere, don't set the field; say why.
+   Exit `0` = linked (created, or already pointing at `RTinfo/<case>`). `2` = `buginfo/<KEY>` exists and points elsewhere (left alone). `3` = not reachable: no share here and no SSH host set, or SSH failed. `1` = bad case number / key. A `warning: RTinfo/<case> does not exist yet` line still counts as linked: mention it.
+3. Only on exit `0`: `editJiraIssue` with `fields: {"customfield_10980": "http://sol-qa-01/buginfo/<KEY>"}` (BugInfo URL). If the update fails, show the error and give the URL to the user to paste under Details. On any other exit, don't set the field; show the script's `buginfo:` line.
 
 Final output:
 ```
@@ -248,7 +246,7 @@ Salesforce case <case number>: add <KEY> to the Jira tab and set Hardware Fault 
 | No Part Delivery work order on the case | Ask for the partner order # as before. Tech orders are never used. |
 | `hw_spare_provided_by` empty, or no partner / location in it | Ask for the partner location (Step 3). Never fall back to the Platinum Plus Maintenance bin or `dest_city`. |
 | SOL link fails | Keep the RMA and report the failure, with the SOL key so the user can link it by hand. |
-| Buginfo symlink exists / not on dev server / field update fails | Keep the RMA. Report it and give the user the `ln -s` command and the Buginfo URL to finish by hand. Never replace an existing link. |
+| Buginfo link exit 2 / 3, or field update fails | Keep the RMA. Show the `buginfo:` line and give the user the `ln -s` command (to run on a dev server) and the Buginfo URL to finish by hand. Exit 3 with "no SSH host set" off a dev server: point to the `buginfo_ssh_host` option ([macOS step 9](../../../../README.md#9-link-buginfo-from-the-mac-optional)). Never replace an existing link. |
 | createJiraIssue fails | Show the error and the full paste-ready draft. |
 
 ## Roadmap (not in this version)
